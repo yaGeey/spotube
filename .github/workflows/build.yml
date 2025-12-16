@@ -1,0 +1,37 @@
+name: Build Check
+
+on:
+   push:
+      branches: ["main", "master"]
+   pull_request:
+      branches: ["main", "master"]
+
+jobs:
+   build:
+      runs-on: ${{ matrix.os }}
+
+      strategy:
+         matrix:
+            os: [ubuntu-latest, windows-latest, macos-latest]
+
+      steps:
+         - name: Checkout code
+           uses: actions/checkout@v4
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v4
+           with:
+              node-version: 22
+              cache: "npm"
+
+         - name: Install dependencies
+           run: npm ci
+
+         - name: Generate Prisma Client
+           run: npx prisma generate
+
+         - name: Rebuild native modules
+           run: npm run rebuild
+
+         - name: Build application
+           run: npm run build

@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model lastfm_info {
+  id             Int              @id @default(autoincrement())
+  track          String?
+  album          String?
+  artist         String?
+  youtube_videos youtube_videos[]
+}
+
+model spotify_playlist_items {
+  playlist_id       String
+  track_id          String
+  spotify_tracks    spotify_tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  spotify_playlists spotify_playlists @relation(fields: [playlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([playlist_id, track_id])
+}
+
+model spotify_playlists {
+  id                     String                   @id
+  title                  String?
+  owner                  String?
+  full_response          String?
+  spotify_playlist_items spotify_playlist_items[]
+}
+
+model spotify_tracks {
+  id                     String                   @id
+  title                  String
+  artist                 String
+  full_response          String
+  spotify_playlist_items spotify_playlist_items[]
+  youtube_videos         youtube_videos[]
+}
+
+model youtube_playlist_items {
+  playlist_id       String
+  video_id          String
+  youtube_videos    youtube_videos    @relation(fields: [video_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  youtube_playlists youtube_playlists @relation(fields: [playlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([playlist_id, video_id])
+}
+
+model youtube_playlists {
+  id                     String                   @id
+  title                  String?
+  owner                  String?
+  full_response          String?
+  youtube_playlist_items youtube_playlist_items[]
+}
+
+model youtube_videos {
+  id         String  @id
+  spotify_id String?
+  lastfm_id  Int?
+
+  title         String
+  artist        String
+  duration_ms   Int
+  statistics    Json?
+  // full_response          String
+  full_response Json // TODO: Migrate to Json type
+
+  youtube_playlist_items youtube_playlist_items[]
+  lastfm_info            lastfm_info?             @relation(fields: [lastfm_id], references: [id], onUpdate: NoAction)
+  spotify_tracks         spotify_tracks?          @relation(fields: [spotify_id], references: [id], onUpdate: NoAction)
+}

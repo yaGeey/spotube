@@ -8,7 +8,7 @@ export default function Auth() {
 
    // Перевіряємо чи є збережений токен
    const checkExistingToken = async () => {
-      const tokenData = await window.ipcRenderer.invoke('get-spotify-token')
+      const tokenData: any = await window.ipcRenderer.invoke('get-spotify-token')
       if (tokenData) {
          setToken(tokenData.access_token)
          setExpiresAt(tokenData.expires_at)
@@ -18,7 +18,7 @@ export default function Auth() {
    // При завантаженні компонента перевіряємо чи є збережений токен
    useEffect(() => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      void checkExistingToken()
+      checkExistingToken()
 
       // Слухаємо повідомлення про новий токен з main process
       const handleToken = (_event: any, data: any) => {

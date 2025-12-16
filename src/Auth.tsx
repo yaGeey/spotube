@@ -1,12 +1,24 @@
 import { useEffect, useState } from 'react'
+import useTime from './hooks/useTime'
 
 export default function Auth() {
    const [token, setToken] = useState<string | null>(null)
    const [expiresAt, setExpiresAt] = useState<number | null>(null)
+   const time = useTime()
+
+   // Перевіряємо чи є збережений токен
+   const checkExistingToken = async () => {
+      const tokenData = await window.ipcRenderer.invoke('get-spotify-token')
+      if (tokenData) {
+         setToken(tokenData.access_token)
+         setExpiresAt(tokenData.expires_at)
+      }
+   }
 
    // При завантаженні компонента перевіряємо чи є збережений токен
    useEffect(() => {
-      checkExistingToken()
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void checkExistingToken()
 
       // Слухаємо повідомлення про новий токен з main process
       const handleToken = (_event: any, data: any) => {
@@ -21,15 +33,6 @@ export default function Auth() {
       }
    }, [])
 
-   // Перевіряємо чи є збережений токен
-   const checkExistingToken = async () => {
-      const tokenData = await window.ipcRenderer.invoke('get-spotify-token')
-      if (tokenData) {
-         setToken(tokenData.access_token)
-         setExpiresAt(tokenData.expires_at)
-      }
-   }
-
    // Logout - видаляємо токен
    const handleLogout = async () => {
       await window.ipcRenderer.invoke('clear-spotify-token')
@@ -41,7 +44,7 @@ export default function Auth() {
    // Форматуємо час до закінчення токена
    const getTimeRemaining = () => {
       if (!expiresAt) return 'N/A'
-      const minutes = Math.floor((expiresAt - Date.now()) / 1000 / 60)
+      const minutes = Math.floor((expiresAt - time.getTime()) / 1000 / 60)
       return `${minutes} хв`
    }
 

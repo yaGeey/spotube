@@ -13,7 +13,7 @@ declare global {
 const videoIds = ['L_LUpnjgPso', 'M7lc1UVf-VE', 'dQw4w9WgXcQ'] // Приклади
 
 function ManualYouTubePlayer() {
-   const [isApiReady, setIsApiReady] = useState(false)
+   const [isApiReady, setIsApiReady] = useState(() => !!window.YT)
 
    // Ref для збереження *об'єкта* плеєра (щоб викликати .playVideo(), .pauseVideo())
    const playerRef = useRef<any>(null)
@@ -24,10 +24,7 @@ function ManualYouTubePlayer() {
    // === КРОК 1: Завантажуємо YouTube IFrame API ===
    useEffect(() => {
       // Якщо API вже завантажено (наприклад, іншим компонентом)
-      if (window.YT) {
-         setIsApiReady(true)
-         return
-      }
+      if (window.YT) return
 
       // Встановлюємо глобальну функцію, яку викличе скрипт
       window.onYouTubeIframeAPIReady = () => {

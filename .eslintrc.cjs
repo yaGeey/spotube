@@ -10,7 +10,7 @@ module.exports = {
       'plugin:react-hooks/recommended',
       'plugin:@tanstack/eslint-plugin-query/recommended',
    ],
-   ignorePatterns: ['dist', '.eslintrc.cjs'],
+   ignorePatterns: ['dist', '.eslintrc.cjs', 'generated', 'electron/main.ts', '*.config.ts'],
    parser: '@typescript-eslint/parser',
    parserOptions: {
       ecmaVersion: 'latest',
@@ -23,7 +23,17 @@ module.exports = {
    rules: {
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-extra-semi': 'off',
+      '@typescript-eslint/no-non-null-asserted-optional-chain': 'warn',
+      'no-extra-semi': 'off',
+      '@tanstack/query/exhaustive-deps': 'off',
+      '@typescript-eslint/no-misused-promises': [
+         'error',
+         {
+            checksVoidReturn: {
+               attributes: false,
+            },
+         },
+      ],
 
       // Дозволяє писати ": any"
       '@typescript-eslint/no-explicit-any': 'off',

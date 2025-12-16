@@ -1,14 +1,13 @@
 import { create } from 'zustand'
 import { toast } from 'react-toastify'
-import YouTube, { YouTubePlayer } from 'react-youtube'
 import { Track, TrackCombined } from '../types/types'
 
 type AudioStore = {
-   playerRef: YouTubePlayer | null
+   playerRef: any
    current: TrackCombined | null
    play: (data: TrackCombined) => void
    stop: () => void
-   setPlayerRef: (ref: YouTubePlayer | null) => void
+   setPlayerRef: (ref: any) => void
    toggle: () => void
    isPlaying: boolean
    setIsPlaying: (isPlaying: boolean) => void

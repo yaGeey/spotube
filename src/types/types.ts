@@ -77,7 +77,7 @@ export type DBInput = {
 
 export type Prettify<T> = {
    [K in keyof T]: T[K]
-} & {}
+} & NonNullable<unknown>
 
 // Тип для результату з БД (full_response як string + lastfm поля)
 export type DBYtResponse = Omit<DBInput['youtube'], 'lastfm_id'> & {

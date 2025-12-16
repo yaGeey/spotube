@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import YouTube, { YouTubePlayer } from 'react-youtube' // TODO
+import YouTube from 'react-youtube' // TODO
 import { useAudioStore } from './hooks/useAudioStore'
 import Button from './components/Button'
 import { DBInput, DBYtResponse, TrackCombined } from './types/types'
@@ -14,7 +14,7 @@ const youtubePlaylistId = 'PLnYVx6d3vk61GHkkWLwkKK499EprZYX13'
 export default function Home() {
    const { current, play, stop, setPlayerRef, setIsPlaying, setTracks, tracks } = useAudioStore()
    const [isPlayerVisible, setIsPlayerVisible] = useState(true)
-   const playerRef = useRef<YouTubePlayer | null>(null)
+   const playerRef = useRef<any>(null)
 
    // --- get spotify playlist ---
    const spotifyPlaylistQuery = useQuery({
@@ -31,15 +31,6 @@ export default function Home() {
    // --- get youtube from spotify tracks ---
    const ytFromSpotifyQuery = useQuery({
       queryKey: ['youtube-from-spotify', spotifyPlaylistId],
-      // queryFn: async (): Promise<(YTVideo[] | null)[]> => {
-      //    return await window.ipcRenderer.invoke(
-      //       'yt-from-spotify-batch',
-      //       (spotifyPlaylistQuery.data || []).map(
-      //          (item) => item.track.artists.map((artist) => artist.name).join(' ') + ' ' + item.track.name
-      //       ),
-      //       spotifyPlaylistId
-      //    )
-      // },
       queryFn: async (): Promise<DBYtResponse[][]> => {
          return await Promise.all(
             (spotifyPlaylistQuery.data || []).map(async (item) => {
@@ -70,7 +61,7 @@ export default function Home() {
       )
 
       console.log('spoti len | yt len | combined', spotifyPlaylistQuery.data?.length, ytFromSpotifyQuery.data?.length, tracks)
-   }, [spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, ytPlaylistQuery.data])
+   }, [spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, ytPlaylistQuery.data, setTracks, tracks])
 
    return (
       <div>
@@ -78,7 +69,7 @@ export default function Home() {
             <Button onClick={() => play(tracks[Math.round(Math.random() * tracks.length - 1)])}>PLAY random</Button>
             <Button onClick={() => stop()}>STOP</Button>
             <Button onClick={() => setIsPlayerVisible((p) => !p)}>toggle player</Button>
-            <Button onClick={() => console.log(playerRef.current.getCurrentTime() + ' / ' + playerRef.current.getDuration())}>
+            <Button onClick={() => console.log(playerRef.current?.getCurrentTime() + ' / ' + playerRef.current.getDuration())}>
                getDuration
             </Button>
          </div>
@@ -94,7 +85,7 @@ export default function Home() {
                   enablejsapi: 1,
                },
             }}
-            onReady={(event: { target: YouTubePlayer }) => {
+            onReady={(event) => {
                console.log('✅ YouTube Player ready', event.target)
                playerRef.current = event.target
                setPlayerRef(event.target)

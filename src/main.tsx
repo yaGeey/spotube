@@ -8,6 +8,11 @@ import { toast } from 'react-toastify'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 const queryClient = new QueryClient({
+   defaultOptions: {
+      queries: {
+         staleTime: Infinity,
+      },
+   },
    queryCache: new QueryCache({
       onError: (error: any) => {
          toast.error(`An error occurred: ${error.message || 'Unknown error'}`)

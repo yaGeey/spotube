@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { toast } from 'react-toastify'
-import { Track, TrackCombined } from '../types/types'
+import { TrackCombined } from '../types/types'
 
 type AudioStore = {
    playerRef: any

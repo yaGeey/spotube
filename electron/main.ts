@@ -4,15 +4,10 @@ import { fileURLToPath, URLSearchParams } from 'node:url'
 import { ipcMain, dialog } from 'electron'
 import path from 'node:path'
 import Store from 'electron-store'
-import { google } from 'googleapis'
-import './lib/db/db-lastfm'
-import './lib/db/db-spotify'
-import './lib/db/db-yt'
 import discordRpc from './ipc/discord-rpc'
 import youtubeIpc from './ipc/yt'
 import lastfmIpc from './ipc/lastfm'
 import spotifyIpc from './ipc/spotify'
-import api from './lib/axios'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)

@@ -17,6 +17,26 @@ export default defineConfig({
          main: {
             // Shortcut of `build.lib.entry`.
             entry: 'electron/main.ts',
+
+            vite: {
+               resolve: {
+                  alias: {
+                     // Дублюємо аліас сюди, щоб Electron теж розумів '@'
+                     '@': path.resolve(__dirname, '.'),
+                  },
+               },
+               build: {
+                  rollupOptions: {
+                     // ВАЖЛИВО: external має бути ТУТ, бо sqlite використовується в electron/main.ts
+                     external: [
+                        'better-sqlite3',
+                        '@prisma/adapter-better-sqlite3',
+                        // Додайте це, якщо path помилка все ще вилазить:
+                        // path.join(__dirname, 'src/generated/prisma/client')
+                     ],
+                  },
+               },
+            },
          },
          preload: {
             // Shortcut of `build.rollupOptions.input`.
@@ -33,4 +53,15 @@ export default defineConfig({
                : {},
       }),
    ],
+   build: {
+      rollupOptions: {
+         // Додаємо сюди модулі, які не треба бандлити
+         external: [
+            'better-sqlite3',
+            '@prisma/adapter-better-sqlite3',
+            // Якщо ваш згенерований клієнт лежить далеко, іноді його теж краще робити external,
+            // але зазвичай достатньо нативних драйверів.
+         ],
+      },
+   },
 })

@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import YouTube from 'react-youtube' // TODO
 import { useAudioStore } from './hooks/useAudioStore'
 import Button from './components/Button'
-import { DBInput, DBYtResponse, TrackCombined } from './types/types'
+import { TrackCombined } from './types/types'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { PlaylistItem } from './types/spotify'
-import { v5 as uuidv5 } from 'uuid'
-import useLastfmData from './hooks/useLastfmData'
+import { YtPayload, YtPayloadWithPlaylist } from '@/electron/ipc/yt'
+import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
 
 const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 const youtubePlaylistId = 'PLnYVx6d3vk61GHkkWLwkKK499EprZYX13'
@@ -19,26 +18,23 @@ export default function Home() {
    // --- get spotify playlist ---
    const spotifyPlaylistQuery = useQuery({
       queryKey: ['spotify-playlist', spotifyPlaylistId],
-      queryFn: async (): Promise<PlaylistItem[]> => await window.ipcRenderer.invoke('get-spotify-playlist', spotifyPlaylistId, true),
+      queryFn: async (): Promise<SpotifyPlaylistResponse> =>
+         await window.ipcRenderer.invoke('get-spotify-playlist', spotifyPlaylistId, true),
    })
 
    // --- get youtube playlist ---
    const ytPlaylistQuery = useQuery({
-      queryKey: ['youtube-playlist', youtubePlaylistId],
-      queryFn: async (): Promise<DBYtResponse[]> => await window.ipcRenderer.invoke('get-yt-playlist', youtubePlaylistId),
+      queryKey: ['yt-playlist', youtubePlaylistId],
+      queryFn: async (): Promise<YtPayloadWithPlaylist> => await window.ipcRenderer.invoke('get-yt-playlist', youtubePlaylistId),
    })
 
    // --- get youtube from spotify tracks ---
    const ytFromSpotifyQuery = useQuery({
-      queryKey: ['youtube-from-spotify', spotifyPlaylistId],
-      queryFn: async (): Promise<DBYtResponse[][]> => {
+      queryKey: ['yt-from-spotify', spotifyPlaylistId],
+      queryFn: async (): Promise<YtPayload[][]> => {
          return await Promise.all(
-            (spotifyPlaylistQuery.data || []).map(async (item) => {
-               return await window.ipcRenderer.invoke(
-                  'yt-from-spotify',
-                  { artist: item.track.artists.map((artist) => artist.name).join(' '), track: item.track.name },
-                  item.track.id
-               )
+            (spotifyPlaylistQuery.data?.items || []).map(async (item) => {
+               return await window.ipcRenderer.invoke('yt-from-spotify', { artist: item.artist, track: item.title }, item.id)
             })
          )
       },
@@ -47,21 +43,25 @@ export default function Home() {
 
    useEffect(() => {
       if (!spotifyPlaylistQuery.data || !ytFromSpotifyQuery.data) return
+      // TODO spotify are from full_response, but yt from db fields - standardize this
+      const spotify = spotifyPlaylistQuery.data.items.map((item) => item.full_response)
+      const spotifyFiltered = spotify.filter((item) => item.track)
 
-      const arr = [
-         ...(spotifyPlaylistQuery.data || []).map((item) => ({ spotify: item })),
-         ...(ytPlaylistQuery.data || []).map((videos) => ({ yt: [videos] })),
-      ] as TrackCombined[]
+      const yt = ytFromSpotifyQuery.data.filter((videos) => videos.length > 0)
+      const ytMap = new Map<string, YtPayload[]>(yt.map((videos, index) => [videos[0].spotify_id!, videos]))
+      
+      if (spotify.length !== yt.length) {
+         alert(`Mismatch in lengths: Spotify items (${spotify.length}) and YouTube items (${yt.length}). There might be missing tracks.`)
+      }
 
-      setTracks(
-         arr.map((item, i) => ({
-            spotify: item.spotify || spotifyPlaylistQuery.data?.[i] || null,
-            yt: item.yt || ytFromSpotifyQuery.data?.[i] || null,
-         }))
-      )
+      const combined = spotifyFiltered.map((item) => ({
+         spotify: item,
+         yt: ytMap.get(item.track!.id) || null,
+      })) satisfies TrackCombined[]
+      setTracks(combined)
 
-      console.log('spoti len | yt len | combined', spotifyPlaylistQuery.data?.length, ytFromSpotifyQuery.data?.length, tracks)
-   }, [spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, ytPlaylistQuery.data, setTracks, tracks])
+      console.log('spoti len | yt len | combined', spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, combined)
+   }, [spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, ytPlaylistQuery.data, setTracks])
 
    return (
       <div>

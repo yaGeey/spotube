@@ -3,74 +3,73 @@ generator client {
   output   = "../generated/prisma"
 }
 
+generator json {
+  provider = "prisma-json-types-generator"
+  // output   = "../generated/json-schema"
+}
+
 datasource db {
   provider = "sqlite"
 }
 
-model lastfm_info {
-  id             Int              @id @default(autoincrement())
-  track          String?
-  album          String?
-  artist         String?
-  youtube_videos youtube_videos[]
+model SpotifyTrack {
+  id            String @id
+  title         String
+  artist        String // TODO artists
+  /// [SpotifyPlaylistItem]
+  full_response Json
+
+  youtube_videos YoutubeVideo[]
+  playlists      SpotifyPlaylist[]
 }
 
-model spotify_playlist_items {
-  playlist_id       String
-  track_id          String
-  spotify_tracks    spotify_tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  spotify_playlists spotify_playlists @relation(fields: [playlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([playlist_id, track_id])
-}
-
-model spotify_playlists {
-  id                     String                   @id
-  title                  String?
-  owner                  String?
-  full_response          String?
-  spotify_playlist_items spotify_playlist_items[]
-}
-
-model spotify_tracks {
-  id                     String                   @id
-  title                  String
-  artist                 String
-  full_response          String
-  spotify_playlist_items spotify_playlist_items[]
-  youtube_videos         youtube_videos[]
-}
-
-model youtube_playlist_items {
-  playlist_id       String
-  video_id          String
-  youtube_videos    youtube_videos    @relation(fields: [video_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  youtube_playlists youtube_playlists @relation(fields: [playlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([playlist_id, video_id])
-}
-
-model youtube_playlists {
-  id                     String                   @id
-  title                  String?
-  owner                  String?
-  full_response          String?
-  youtube_playlist_items youtube_playlist_items[]
-}
-
-model youtube_videos {
-  id         String  @id
-  spotify_id String?
-  lastfm_id  Int?
+model YoutubeVideo {
+  id         String   @id
+  updated_at DateTime @default(now()) @updatedAt
 
   title         String
   artist        String
   duration_ms   Int
+  views         Int
+  published_at  DateTime
+  thumbnail_url String
+  /// YtVideoStatistics
   statistics    Json?
-  // full_response          String
-  full_response Json // TODO: Migrate to Json type
+  /// [YtFullResponse]
+  full_response Json
 
-  youtube_playlist_items youtube_playlist_items[]
-  lastfm_info            lastfm_info?             @relation(fields: [lastfm_id], references: [id], onUpdate: NoAction)
-  spotify_tracks         spotify_tracks?          @relation(fields: [spotify_id], references: [id], onUpdate: NoAction)
+  spotifyTrack     SpotifyTrack?     @relation(fields: [spotify_id], references: [id])
+  spotify_id       String?
+  lastFm           LastFM?           @relation(fields: [lastfm_id], references: [id])
+  lastfm_id        Int?
+  youtubePlaylists YoutubePlaylist[]
+}
+
+model LastFM {
+  id            Int            @id @default(autoincrement())
+  /// [LastFMTrack]
+  track         Json?
+  /// [LastFMAlbum]
+  album         Json?
+  /// [LastFMArtist]
+  artist        Json?
+  youtubeVideos YoutubeVideo[]
+}
+
+model YoutubePlaylist {
+  id            String         @id
+  title         String
+  owner         String
+  full_response Json // TODO do I need this?
+  content       YoutubeVideo[]
+}
+
+model SpotifyPlaylist {
+  id            String         @id
+  snapshot_id   String
+  title         String
+  owner         String
+  thumbnail_url String?
+  url           String
+  content       SpotifyTrack[]
 }

@@ -1,11 +1,10 @@
 import { BrowserWindow } from 'electron'
-import api from '../lib/axios'
+import api, { logPrettyError } from '../lib/axios'
 import { win, store } from '../main'
 import chalk from 'chalk'
 import axios from 'axios'
-import { dbInsertSpotifyTrack, getSpotifyTracksByPlaylistIDQuery } from '../lib/db/db-spotify'
-import { PlaylistItem } from '@/src/types/spotify'
-import { DB } from '@/src/types/types'
+import prisma from '../lib/prisma'
+import { SpotifyPlaylist, SpotifyTrack } from '@/generated/prisma/client'
 
 async function getSpotifyToken(): Promise<{ access_token: string; expires_at: number } | null> {
    const token = store.get('spotify.access_token') as string | undefined
@@ -47,6 +46,8 @@ async function getSpotifyToken(): Promise<{ access_token: string; expires_at: nu
       return null
    }
 }
+
+export type SpotifyPlaylistResponse = SpotifyPlaylist & { items: SpotifyTrack[] }
 
 export default function spotifyIpc(ipcMain: Electron.IpcMain) {
    ipcMain.on('spotify-login', async () => {
@@ -119,67 +120,107 @@ export default function spotifyIpc(ipcMain: Electron.IpcMain) {
       })
    })
 
-   ipcMain.handle('get-spotify-playlist', async (event, playlistId: string, update: boolean = false) => {
-      // load from cache
-      // if (store.get(`spotify.playlists.${playlistId}.items`) && !update) {
-      //    console.log('Cache hit for Spotify playlist', playlistId)
-      //    return store.get(`spotify.playlists.${playlistId}.items`)
-      // }
-      // store.delete(`spotify.playlists.${playlistId}.items`)
-      // const playlistCached = getSpotifyPlaylistByIDQuery(playlistId)
-      // if (!playlistCached) {
-      //    console.log(chalk.yellow('No cached playlist', playlistId))
-      //    createSpotifyPlaylistByIDQuery(playlistId)
-      // }
-      const cached = getSpotifyTracksByPlaylistIDQuery.all(playlistId) as DB['spotify'][]
-      if (cached && cached.length > 0 && !update) {
-         console.log(chalk.green('Cache hit for Spotify playlist', playlistId))
-         return cached.map((item) => JSON.parse(item.full_response))
-      }
+   ipcMain.handle('get-spotify-playlist', async (event, playlistId: string): Promise<SpotifyPlaylistResponse | undefined> => {
+      try {
+         const accessToken = await getSpotifyToken().then((res) => res?.access_token)
+         if (!accessToken) throw new Error('No Spotify access token available')
 
-      // TODO snapshot test from spotify api
-      const isNewSnapshot = true
+         // fetch playlist with metadata
+         // const { data: playlistRes } = await api.get<PrismaJson.SpotifyPlaylistResponse>(
+         const { data: playlistRes } = await api.get<SpotifyApi.SinglePlaylistResponse>(
+            `https://api.spotify.com/v1/playlists/${playlistId}`,
+            {
+               headers: { Authorization: `Bearer ${accessToken}` },
+            }
+         )
 
-      // fetch from API
-      const accessToken = await getSpotifyToken().then((res) => res?.access_token)
-      const res = await api.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-         headers: { Authorization: `Bearer ${accessToken}` },
-      })
-      let data = res.data
-
-      // pagination
-      const tracks: PlaylistItem[] = [...data.items]
-      while (data.next) {
-         const res = await api.get(data.next, {
-            headers: { Authorization: `Bearer ${accessToken}` },
+         // create playlist in db if not exists
+         let playlist = await prisma.spotifyPlaylist.findUnique({
+            where: { id: playlistRes.id },
          })
-         data = res.data
-         tracks.push(...data.items)
-      }
-
-      // remove available_markets field
-      const newTracks = tracks.map((item) => {
-         const { track, ...restOfItem } = item
-         const { available_markets, album, ...restOfTrack } = track
-         const { available_markets: _, ...restOfAlbum } = album
-         return {
-            ...restOfItem,
-            track: {
-               ...restOfAlbum,
-               ...restOfTrack,
-            },
+         if (!playlist) {
+            playlist = await prisma.spotifyPlaylist.create({
+               data: {
+                  id: playlistRes.id,
+                  title: playlistRes.name,
+                  owner: playlistRes.owner.display_name || 'Unknown Owner',
+                  thumbnail_url: playlistRes.images[0]?.url,
+                  snapshot_id: playlistRes.snapshot_id,
+                  url: playlistRes.external_urls.spotify,
+               },
+            })
+         } else if (playlist.snapshot_id === playlistRes.snapshot_id) {
+            // if snapshot is the same, return cached tracks
+            console.log(chalk.green(`Spotify playlist cache hit for ${playlistId}`))
+            const cachedTracks = await prisma.spotifyTrack.findMany({
+               where: { playlists: { some: { id: playlist.id } } },
+            })
+            return {
+               ...playlist,
+               items: cachedTracks,
+            } satisfies SpotifyPlaylistResponse
          }
-      })
 
-      // store.set(`spotify.playlists.${playlistId}.items`, newTracks)
-      for (const t of newTracks) {
-         dbInsertSpotifyTrack(playlistId, {
-            id: t.track.id,
-            title: t.track.name,
-            artist: t.track.artists[0].name, // TODO
-            full_response: t,
+         // pagination
+         const tracks = [...playlistRes.tracks.items]
+         let pagingObject = playlistRes.tracks
+         while (pagingObject.next) {
+            const res = await api.get(pagingObject.next, {
+               headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            pagingObject = res.data
+            tracks.push(...pagingObject.items)
+         }
+
+         // remove available_markets field
+         // const filteredTracks = tracks
+         //    .map((item) => {
+         //       const { track, ...restOfItem } = item
+         //       if (!track || !track.id) return // check for local or unavailable tracks
+         //       const album = track.album || {}
+         //       const { available_markets, ...restOfTrack } = track
+         //       const { available_markets: _, ...restOfAlbum } = album as Album & { available_markets?: string[] }
+         //       return {
+         //          ...restOfItem,
+         //          track: {
+         //             ...restOfTrack,
+         //             album: restOfAlbum,
+         //          },
+         //       } satisfies PrismaJson.SpotifyPlaylistItem
+         //    })
+         //    .filter((item) => item !== undefined)
+
+         // insert tracks into db
+         const operations = tracks
+            .map((item) => {
+               if (!item.track || !item.track.id) return null // skip local or unavailable tracks
+               return prisma.spotifyTrack.upsert({
+                  where: { id: item.track.id },
+                  update: { playlists: { connect: { id: playlist!.id } } },
+                  create: {
+                     id: item.track.id,
+                     title: item.track.name,
+                     full_response: item,
+                     artist: item.track.artists.map((artist) => artist.name).join(', '),
+                     playlists: { connect: { id: playlist!.id } },
+                  },
+               })
+            })
+            .filter((op) => op !== null)
+         const tracksPrisma = await prisma.$transaction(operations)
+
+         // update snapshot id
+         playlist = await prisma.spotifyPlaylist.update({
+            where: { id: playlist.id },
+            data: { snapshot_id: playlistRes.snapshot_id },
          })
+
+         return {
+            ...playlist,
+            items: tracksPrisma,
+         }
+      } catch (error) {
+         logPrettyError(error)
       }
-      return newTracks
    })
 }

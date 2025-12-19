@@ -1,45 +1,35 @@
 import React, { useEffect, useState } from 'react'
 import { useAudioStore } from '../hooks/useAudioStore'
-import { formatDuration } from '../utils/time'
+import PlayerTrackProgress from './PlayerTrackProgress'
 
 export default function Player() {
    const { current, toggle, playerRef, isPlaying, next, back } = useAudioStore()
    const [volume, setVolume] = useState<number>(playerRef ? playerRef.getVolume() : 50)
 
-   const [currentTime, setCurrentTime] = useState<string>('0:00')
-
-   const [progress, setProgress] = useState(30)
-   useEffect(() => {
-      const interval = setInterval(() => {
-         if (playerRef && isPlaying) {
-            setCurrentTime(formatDuration(playerRef.getCurrentTime()))
-            const prog = (playerRef.getCurrentTime() / playerRef.getDuration()) * 100
-            setProgress(prog)
-         }
-      }, 1000)
-      return () => clearInterval(interval)
-   }, [current, isPlaying, playerRef])
-
-   const image = current?.spotify?.track.images[0] ?? current?.yt?.[0].full_response.snippet?.thumbnails?.standard
-   const { width, height, url } = image || {}
-
    if (!current || !playerRef) return null
+
+   const image = current.spotify?.track?.album.images[0] ?? current.yt?.[0].full_response.snippet?.thumbnails?.standard
    return (
       <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between text-white h-[90px] z-50">
          {/* Left: Track Info */}
          <div className="flex items-center w-[30%] min-w-[180px]">
+            {/* Album Art */}
             <div className="w-14 h-14 bg-neutral-800 mr-4 rounded-md flex-shrink-0 overflow-hidden shadow-lg relative group">
-               {/* Album Art Placeholder */}
                <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800">
-                  {image ? <img src={url!} width={width!} height={height!} alt="Album Art" /> : <MusicIcon className="w-6 h-6" />}
+                  {image && image.url ? (
+                     <img src={image.url} width={image.width || 56} height={image.height || 56} alt="Album Art" />
+                  ) : (
+                     <MusicIcon className="w-6 h-6" />
+                  )}
                </div>
             </div>
+            {/* Track Title & Artists */}
             <div className="flex flex-col overflow-hidden">
                <span className="text-sm font-medium hover:underline cursor-pointer truncate text-white">
-                  {current?.spotify?.track.name ?? current?.yt?.[0].title}
+                  {current.spotify?.track?.name ?? current.yt?.[0].title}
                </span>
                <span className="text-xs text-neutral-400 hover:underline cursor-pointer truncate hover:text-white transition-colors">
-                  {current?.spotify?.track.artists.map((a) => a.name).join(', ') ?? current?.yt?.[0].artist}
+                  {current.spotify?.track?.artists.map((a) => a.name).join(', ') ?? current?.yt?.[0].artist}
                </span>
             </div>
             <button className="ml-4 text-neutral-400 hover:text-white transition-colors">
@@ -73,20 +63,7 @@ export default function Player() {
                   <RepeatIcon className="w-4 h-4" />
                </button>
             </div>
-            <div className="w-full flex items-center gap-2 text-xs text-neutral-400 font-medium font-mono">
-               <span>{currentTime}</span>
-               <div className="h-1 bg-neutral-600 rounded-full w-full relative group cursor-pointer">
-                  <div
-                     className="absolute top-0 left-0 h-full bg-white rounded-full group-hover:bg-green-500 transition-colors"
-                     style={{ width: `${progress}%` }}
-                  ></div>
-                  <div
-                     className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
-                     style={{ left: `${progress}%` }}
-                  ></div>
-               </div>
-               <span>{formatDuration(playerRef.getDuration())}</span>
-            </div>
+            <PlayerTrackProgress />
          </div>
 
          {/* Right: Volume & Extra */}

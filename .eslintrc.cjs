@@ -10,7 +10,7 @@ module.exports = {
       'plugin:react-hooks/recommended',
       'plugin:@tanstack/eslint-plugin-query/recommended',
    ],
-   ignorePatterns: ['dist', '.eslintrc.cjs', 'generated', 'electron/main.ts', '*.config.ts'],
+   ignorePatterns: ['dist', '.eslintrc.cjs', 'generated', 'electron/main.ts', 'vite.config.ts', 'tsconfig.json', 'prisma.config.ts'],
    parser: '@typescript-eslint/parser',
    parserOptions: {
       ecmaVersion: 'latest',
@@ -26,6 +26,7 @@ module.exports = {
       '@typescript-eslint/no-non-null-asserted-optional-chain': 'warn',
       'no-extra-semi': 'off',
       '@tanstack/query/exhaustive-deps': 'off',
+      '@typescript-eslint/no-namespace': 'off',
 
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',

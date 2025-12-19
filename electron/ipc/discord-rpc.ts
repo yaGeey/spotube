@@ -1,5 +1,5 @@
 import { Client } from 'discord-rpc'
-import { Track, TrackCombined } from '../../src/types/types'
+import { TrackCombined } from '../../src/types/types'
 import chalk from 'chalk'
 // https://discord.com/developers/docs/events/gateway-events#activity-object-activity-types
 
@@ -29,21 +29,25 @@ export default function discordRpc(rpc: Client, ipcMain: Electron.IpcMain) {
 
    ipcMain.on('update-discord-presence', (event, data: TrackCombined) => {
       if (!rpc) return
+      const duration = data.yt?.[0].duration_ms ?? data.spotify?.track?.duration_ms
+
       setActivity(rpc, {
-         details: data.spotify?.track.name ?? data.yt?.[0].title,
-         state: data.spotify?.track.artists.map((a) => a.name).join(' ') ?? data.yt?.[0].artist,
-         timestamps: {
-            start: Date.now(),
-            end: Date.now() + data.spotify?.track.duration_ms!, // TODO change to yt duration
-         },
+         details: data.spotify?.track?.name ?? data.yt?.[0].title,
+         state: data.spotify?.track?.artists.map((a) => a.name).join(' ') ?? data.yt?.[0].artist,
+         ...(duration && {
+            timestamps: {
+               start: Date.now(),
+               end: Date.now() + duration,
+            },
+         }),
          assets: data.spotify
             ? {
-                 large_image: data.spotify?.track.images[0].url,
-                 large_text: data.spotify?.track.name,
+                 large_image: data.spotify?.track?.album.images[0].url,
+                 large_text: data.spotify?.track?.name,
                  small_image: 'spotify',
                  small_text: 'Listening on Spotify',
-                 large_url: data.spotify?.track.external_urls.spotify,
-                 small_url: data.spotify?.track.external_urls.spotify,
+                 large_url: data.spotify?.track?.external_urls.spotify,
+                 small_url: data.spotify?.track?.external_urls.spotify,
               }
             : {
                  large_image: data.yt?.[0].full_response.snippet?.thumbnails?.default?.url?.replace('http://', 'https://'),

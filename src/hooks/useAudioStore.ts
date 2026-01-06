@@ -27,7 +27,10 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
    history: [],
    currentIndexAtHistory: -1,
 
-   setPlayerRef: (ref) => set({ playerRef: ref }),
+   setPlayerRef: (ref) => {
+      ref.hideVideoInfo()
+      set({ playerRef: ref })
+   },
    setIsPlaying: (isPlaying) => set({ isPlaying }),
    setTracks: (tracks) => set({ tracks }),
 

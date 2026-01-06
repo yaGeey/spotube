@@ -8,6 +8,7 @@ import discordRpc from './ipc/discord-rpc'
 import youtubeIpc from './ipc/yt'
 import lastfmIpc from './ipc/lastfm'
 import spotifyIpc from './ipc/spotify'
+import aiIpc from './ipc/ai'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
@@ -40,6 +41,8 @@ if (process.defaultApp) {
 
 function createWindow() {
    win = new BrowserWindow({
+      width: 1200,
+      height: 800,
       icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
       webPreferences: {
          preload: path.join(__dirname, 'preload.mjs'),
@@ -89,6 +92,7 @@ app.whenReady().then(() => {
    youtubeIpc(ipcMain, store)
    spotifyIpc(ipcMain)
    lastfmIpc(ipcMain)
+   aiIpc(ipcMain)
 
    ipcMain.on('update-last-played', (event, id) => store.set('last-played', id))
 })

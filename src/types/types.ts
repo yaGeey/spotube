@@ -3,6 +3,7 @@ import { YtPayload } from '@/electron/ipc/yt'
 
 declare global {
    namespace PrismaJson {
+      // YouTube
       export type YtFullResponse =
          | {
               type: 'searchResult'
@@ -13,20 +14,16 @@ declare global {
               snippet: youtube_v3.Schema$PlaylistItemSnippet
            }
       export type YtVideoStatistics = youtube_v3.Schema$VideoStatistics
-   }
-}
 
-export type Track = {
-   source: 'youtube' | 'spotify'
-   id: string
-   duration_ms: number
-   title: string
-   artists: string[]
+      // Spotify
+      export type SpotifyPlaylistItem = SpotifyApi.PlaylistTrackObject
+   }
 }
 
 export type TrackCombined = {
    yt?: YtPayload[] | null
    spotify?: PrismaJson.SpotifyPlaylistItem | null
+   ai?: PrismaJson.AiMusicData | null
 }
 
 export type Prettify<T> = {

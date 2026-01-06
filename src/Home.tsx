@@ -3,9 +3,10 @@ import YouTube from 'react-youtube' // TODO
 import { useAudioStore } from './hooks/useAudioStore'
 import Button from './components/Button'
 import { TrackCombined } from './types/types'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery } from '@tanstack/react-query'
 import { YtPayload, YtPayloadWithPlaylist } from '@/electron/ipc/yt'
 import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
+import Card from './components/Card'
 
 const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 const youtubePlaylistId = 'PLnYVx6d3vk61GHkkWLwkKK499EprZYX13'
@@ -41,31 +42,58 @@ export default function Home() {
       enabled: !!spotifyPlaylistQuery.data,
    })
 
+   const [aiGenerating, setAIGenerating] = useState(false)
+   const AIQueries = useQueries({
+      queries: tracks
+         .filter((a) => a.spotify)
+         .map((item) => ({
+            queryKey: ['ai-music-data', item.spotify!.track?.id],
+            queryFn: async () => {
+               const title = item.spotify!.track?.name
+               const artist = item.spotify!.track?.artists.map((a) => a.name).join(', ') || ''
+               return await window.ipcRenderer.invoke('ai-music-data', title, artist)
+            },
+            enabled: false,
+         })),
+   })
+
    useEffect(() => {
       if (!spotifyPlaylistQuery.data || !ytFromSpotifyQuery.data) return
       // TODO spotify are from full_response, but yt from db fields - standardize this
       const spotify = spotifyPlaylistQuery.data.items.map((item) => item.full_response)
       const spotifyFiltered = spotify.filter((item) => item.track)
 
-      const yt = ytFromSpotifyQuery.data.filter((videos) => videos.length > 0)
-      const ytMap = new Map<string, YtPayload[]>(yt.map((videos, index) => [videos[0].spotify_id!, videos]))
-      
-      if (spotify.length !== yt.length) {
-         alert(`Mismatch in lengths: Spotify items (${spotify.length}) and YouTube items (${yt.length}). There might be missing tracks.`)
+      const ytfs = ytFromSpotifyQuery.data.filter((videos) => videos.length > 0)
+      const ytfsMap = new Map<string, YtPayload[]>(ytfs.map((videos, index) => [videos[0].spotify_id!, videos]))
+
+      if (spotify.length !== ytfs.length) {
+         alert(`Mismatch in lengths: Spotify items (${spotify.length}) and YouTube items (${ytfs.length}). There might be missing tracks.`)
       }
 
       const combined = spotifyFiltered.map((item) => ({
          spotify: item,
-         yt: ytMap.get(item.track!.id) || null,
+         yt: ytfsMap.get(item.track!.id) || null,
       })) satisfies TrackCombined[]
+      ytPlaylistQuery.data?.content.forEach((ytItem) => combined.push({ spotify: null as any, yt: [ytItem] }))
       setTracks(combined)
 
-      console.log('spoti len | yt len | combined', spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, combined)
+      console.log('spoti | yt from spoty | combined', spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, combined)
+      console.log('yt', ytPlaylistQuery.data)
    }, [spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, ytPlaylistQuery.data, setTracks])
+
+   // useEffect(() => {
+   //    const updatedTracks = tracks.map((track, i) => ({
+   //       ...track,
+   //       ai: AIQueries[i]?.data || null,
+   //    }))
+   //    setTracks(updatedTracks)
+   // }, [AIQueries.map((q) => q.data)])
+   // console.log(tracks)
 
    return (
       <div>
          <div className="flex gap-2">
+            {/* <Button onClick={() => setAIGenerating(true)}>{aiGenerating ? 'Generating..' : 'Generate AI data'}</Button> */}
             <Button onClick={() => play(tracks[Math.round(Math.random() * tracks.length - 1)])}>PLAY random</Button>
             <Button onClick={() => stop()}>STOP</Button>
             <Button onClick={() => setIsPlayerVisible((p) => !p)}>toggle player</Button>
@@ -83,6 +111,7 @@ export default function Home() {
                   mute: 0,
                   playsinline: 1,
                   enablejsapi: 1,
+                  controls: 0,
                },
             }}
             onReady={(event) => {
@@ -94,6 +123,11 @@ export default function Home() {
             onPause={() => setIsPlaying(false)}
             onEnd={() => setIsPlaying(false)}
          />
+         <div className="flex flex-col gap-1">
+            {tracks.map((track, i) => (
+               <Card key={track.yt?.[0].id} data={track} index={i} />
+            ))}
+         </div>
       </div>
    )
 }

@@ -88,7 +88,6 @@ export default function youtubeIpc(ipcMain: Electron.IpcMain, store: any) {
                   where: { id: videoId },
                   update: {
                      views: contentItem.statistics?.viewCount ? parseInt(contentItem.statistics.viewCount, 10) : 0,
-                     statistics: contentItem.statistics,
                      youtubePlaylists: { connect: { id: playlistPrisma.id } },
                   },
                   create: {
@@ -99,7 +98,6 @@ export default function youtubeIpc(ipcMain: Electron.IpcMain, store: any) {
                      published_at: contentItem.snippet?.publishedAt ? new Date(contentItem.snippet.publishedAt) : new Date(),
                      views: contentItem.statistics?.viewCount ? parseInt(contentItem.statistics.viewCount, 10) : 0,
                      thumbnail_url: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
-                     statistics: contentItem.statistics,
                      full_response: {
                         type: 'playlistItem',
                         snippet: item.snippet,
@@ -174,7 +172,6 @@ export default function youtubeIpc(ipcMain: Electron.IpcMain, store: any) {
                   where: { id: videoId },
                   update: {
                      views: content.statistics?.viewCount ? parseInt(content.statistics.viewCount, 10) : 0,
-                     statistics: content.statistics,
                      spotifyTrack: { connect: { id: spotifyId } },
                      lastFm: { connect: { id: lastFm.id } },
                   },
@@ -186,7 +183,6 @@ export default function youtubeIpc(ipcMain: Electron.IpcMain, store: any) {
                      published_at: content.snippet?.publishedAt ? new Date(content.snippet.publishedAt) : new Date(),
                      views: content.statistics?.viewCount ? parseInt(content.statistics.viewCount, 10) : 0,
                      thumbnail_url: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
-                     statistics: content.statistics,
                      full_response: {
                         type: 'searchResult',
                         snippet: item.snippet,

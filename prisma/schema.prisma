@@ -33,8 +33,6 @@ model YoutubeVideo {
   views         Int
   published_at  DateTime
   thumbnail_url String
-  /// YtVideoStatistics
-  statistics    Json?
   /// [YtFullResponse]
   full_response Json
 
@@ -72,4 +70,12 @@ model SpotifyPlaylist {
   thumbnail_url String?
   url           String
   content       SpotifyTrack[]
+}
+
+model AiData {
+  id       Int    @id @default(autoincrement())
+  title    String
+  artist   String
+  /// [AiMusicData]
+  response Json
 }

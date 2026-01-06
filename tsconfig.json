@@ -24,6 +24,6 @@
          "@/*": ["./*"]
       }
    },
-   "include": ["src", "electron", "prisma.ts"],
+   "include": ["src", "electron", "*.ts"],
    "references": [{ "path": "./tsconfig.node.json" }]
 }

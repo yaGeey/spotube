@@ -1,6 +1,11 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/roboto-flex/index.css';
+@plugin '@tailwindcss/typography';
+
 :root {
-   --font-family: 'Inter', sans-serif;
+   --font-family: 'Roboto Flex Variable', sans-serif;
+   --font-sans: 'Roboto Flex Variable', ui-sans-serif, system-ui, sans-serif;
+
    --color-50: oklch(0.95 0.025 357);
    --color-100: oklch(0.87 0.04 358);
    --color-200: oklch(0.79 0.08 360);
@@ -14,4 +19,13 @@
    --color-950: oklch(0.15 0.03 359);
    --color-main: #181818;
    --color-text-subtle: oklch(0.75 0.025 357);
+}
+@theme inline {
+   --color-main: oklch(0.209 0 0);
+   --color-darker: oklch(0.24 0.06 4.2);
+   --color-dark: oklch(0.4 0.14 4.6);
+   --color-light: oklch(0.55 0.17 6);
+   --color-lighter: oklch(0.7 0.18 6);
+   --color-text: oklch(0.95 0.01 0);
+   --color-text-subtle: oklch(0.7 0.01 0);
 }

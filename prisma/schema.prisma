@@ -19,7 +19,10 @@ model SpotifyTrack {
   /// [SpotifyPlaylistItem]
   full_response Json
 
-  youtube_videos YoutubeVideo[]
+  default_yt_video    YoutubeVideo? @relation("DefaultVideo", fields: [default_yt_video_id], references: [id])
+  default_yt_video_id String?
+
+  youtube_videos YoutubeVideo[]    @relation("TrackVideos")
   playlists      SpotifyPlaylist[]
 }
 
@@ -28,15 +31,17 @@ model YoutubeVideo {
   updated_at DateTime @default(now()) @updatedAt
 
   title         String
-  artist        String
+  author        String
+  author_id     String
   duration_ms   Int
   views         Int
   published_at  DateTime
   thumbnail_url String
-  /// [YtFullResponse]
-  full_response Json
+  ///// [YtFullResponse]
+  //full_response Json
 
-  spotifyTrack     SpotifyTrack?     @relation(fields: [spotify_id], references: [id])
+  defaultFor       SpotifyTrack[]    @relation("DefaultVideo")
+  spotifyTrack     SpotifyTrack?     @relation("TrackVideos", fields: [spotify_id], references: [id])
   spotify_id       String?
   lastFm           LastFM?           @relation(fields: [lastfm_id], references: [id])
   lastfm_id        Int?

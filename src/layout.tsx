@@ -18,7 +18,7 @@ export default function Layout() {
                Test
             </NavLink>
          </nav>
-         <main className="p-4">
+         <main>
             <Outlet />
          </main>
          <Player />

@@ -9,6 +9,8 @@ import youtubeIpc from './ipc/yt'
 import lastfmIpc from './ipc/lastfm'
 import spotifyIpc from './ipc/spotify'
 import aiIpc from './ipc/ai'
+import youtubeScrapIpc from './ipc/yt-scrap'
+import { logPrettyError } from './lib/axios'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
@@ -60,11 +62,17 @@ function createWindow() {
    } else {
       win.loadFile(path.join(RENDERER_DIST, 'index.html'))
    }
+
+   // win.once('ready-to-show', () => {
+   //    if (VITE_DEV_SERVER_URL) {
+   //       win?.webContents.openDevTools({ mode: 'detach' })
+   //    }
+   // })
 }
 
 process.on('uncaughtException', (error) => {
    if (error.message.includes('Error occurred in handler')) return
-   console.error(error)
+   logPrettyError(error)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -93,6 +101,7 @@ app.whenReady().then(() => {
    spotifyIpc(ipcMain)
    lastfmIpc(ipcMain)
    aiIpc(ipcMain)
+   youtubeScrapIpc(ipcMain)
 
    ipcMain.on('update-last-played', (event, id) => store.set('last-played', id))
 })

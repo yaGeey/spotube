@@ -1,0 +1,34 @@
+import { useMutation } from '@tanstack/react-query'
+import { useAudioStore } from '../hooks/useAudioStore'
+// TODO updates only in db, not in the store
+
+export default function YtVideoCards() {
+   const { play, current } = useAudioStore()
+
+   const mutation = useMutation({
+      mutationFn: (ytId: string) => window.ipcRenderer.invoke('update-spotify-default-yt-video', ytId, current!.spotify?.id),
+   })
+   const handleClick = (ytId: string) => {
+      mutation.mutate(ytId)
+      play(current!, ytId)
+   }
+
+   if (!current?.yt || current.yt.length <= 1 || !current.spotify?.id) return null
+   return (
+      <div className="bg-main flex flex-col gap-2">
+         {current.yt.map((v) => (
+            <div
+               className="bg-gray-800 rounded-lg p-4 flex flex-col gap-2 text-nowrap truncate"
+               onClick={() => handleClick(v.id)}
+               key={v.id}
+            >
+               <img src={v.thumbnail_url} alt={v.title} className="w-full rounded-md" />
+               <h3 className="text-white font-semibold text-lg">{v.title}</h3>
+               <p className="text-gray-400">By: {v.author}</p>
+               <p className="text-gray-400">Views: {v.views.toLocaleString()}</p>
+               <p className="text-gray-400">Published at: {new Date(v.published_at).toLocaleDateString()}</p>
+            </div>
+         ))}
+      </div>
+   )
+}

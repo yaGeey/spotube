@@ -1,3 +1,18 @@
+import { sub } from 'date-fns'
+
+export function parseRelative(dateStr: string): Date {
+   const cleanStr = dateStr.toLowerCase()
+   const match = cleanStr.match(/(\d+)\s+(year|month|week|day|hour|minute|second)/)
+
+   if (!match) return new Date()
+
+   const value = parseInt(match[1], 10)
+   const unit = match[2] + 's'
+
+   const duration = { [unit]: value }
+   return sub(new Date(), duration)
+}
+
 export function formatDuration(totalSeconds: number): string {
    const floored = Math.floor(totalSeconds)
    const hours = Math.floor(floored / 3600)

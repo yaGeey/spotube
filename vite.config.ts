@@ -28,12 +28,7 @@ export default defineConfig({
                build: {
                   rollupOptions: {
                      // ВАЖЛИВО: external має бути ТУТ, бо sqlite використовується в electron/main.ts
-                     external: [
-                        'better-sqlite3',
-                        '@prisma/adapter-better-sqlite3',
-                        // Додайте це, якщо path помилка все ще вилазить:
-                        // path.join(__dirname, 'src/generated/prisma/client')
-                     ],
+                     external: ['better-sqlite3', '@prisma/adapter-better-sqlite3', 'youtubei', 'googleapis'],
                   },
                },
             },

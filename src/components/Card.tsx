@@ -9,13 +9,16 @@ import { useNavigate } from 'react-router-dom'
 export default function Card({ data, index }: { data: TrackCombined; index: number }) {
    const { play, current } = useAudioStore()
    const navigate = useNavigate()
-   const { yt, spotify } = data
-   const image = data.spotify?.track?.album.images[0] ?? data.yt?.[0].full_response.snippet?.thumbnails?.standard
+
+   const spotify = data.spotify?.full_response.track
+   const yt = data.yt
+
+   const image = spotify?.album.images[0].url ?? data.yt?.[0].thumbnail_url
    const isPlaying = current?.yt?.[0].id === yt?.[0].id
 
    const handleNavigateToAI = () => {
-      const title = data.spotify?.track?.name ?? data.yt?.[0].title
-      const artist = data.spotify?.track?.artists[0]?.name ?? data.yt?.[0].artist
+      const title = spotify?.name ?? data.yt?.[0].title
+      const artist = spotify?.artists[0]?.name ?? data.yt?.[0].author
       if (title && artist) navigate(`/ai?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`)
    }
    return (
@@ -26,11 +29,7 @@ export default function Card({ data, index }: { data: TrackCombined; index: numb
             {/* Album Art */}
             <div className="w-14 h-14 bg-neutral-800 mr-4 rounded-md flex-shrink-0 overflow-hidden shadow-lg relative group">
                <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800">
-                  {image && image.url ? (
-                     <img src={image.url} alt="Album Art" className="w-full h-full object-cover" />
-                  ) : (
-                     <MusicIcon className="w-6 h-6" />
-                  )}
+                  {image ? <img src={image} alt="Album Art" className="w-full h-full object-cover" /> : <MusicIcon className="w-6 h-6" />}
                </div>
             </div>
             {/* Track Title & Artists */}
@@ -39,10 +38,10 @@ export default function Card({ data, index }: { data: TrackCombined; index: numb
                   onClick={handleNavigateToAI}
                   className={tw('text-text font-medium hover:underline cursor-pointer truncate', isPlaying && 'text-lighter')}
                >
-                  {data.spotify?.track?.name ?? data.yt?.[0].title}
+                  {spotify?.name ?? data.yt?.[0].title}
                </span>
                <span className="text-xs text-text-subtle hover:underline cursor-pointer truncate hover:text-text transition-colors">
-                  {data.spotify?.track?.artists.map((a) => a.name).join(', ') ?? data?.yt?.[0].artist}
+                  {spotify?.artists.map((a) => a.name).join(', ') ?? data?.yt?.[0].author}
                </span>
             </div>
             <button className="ml-4 text-text-subtle hover:text-text transition-colors">
@@ -50,7 +49,7 @@ export default function Card({ data, index }: { data: TrackCombined; index: numb
             </button>
          </div>
 
-         <span>{formatRelativeTime(spotify?.added_at ?? yt?.[0].published_at ?? new Date())}</span>
+         <span>{formatRelativeTime(data.spotify?.full_response.added_at ?? yt?.[0].published_at ?? new Date())}</span>
          <span>{formatDuration(yt?.[0].duration_ms ? yt?.[0].duration_ms / 1000 : 0)}</span>
          <span className="text-red-400">{!spotify ? 'yt' : ' '}</span>
       </li>

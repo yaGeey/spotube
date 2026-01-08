@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useAudioStore } from '../hooks/useAudioStore'
 import PlayerTrackProgress from './PlayerTrackProgress'
 import PlayerVolume from './PlayerVolume'
+// prettier-ignore
 import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, SkipForwardIcon, RepeatIcon, Mic2Icon, ListMusicIcon, MonitorSpeakerIcon } from './Icons'
 
 export default function Player() {
@@ -29,8 +30,9 @@ export default function Player() {
    }, [toggle, next, back, playerRef])
 
    if (!current || !playerRef) return null
+   const { yt, spotify } = current
 
-   const image = current.spotify?.track?.album.images[0] ?? current.yt?.[0].full_response.snippet?.thumbnails?.standard
+   const image = spotify?.full_response.track?.album.images[0].url ?? current.yt?.[0].thumbnail_url
    return (
       <div className="fixed bottom-0 left-0 right-0 bg-main backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between text-white h-[90px] z-50">
          {/* Left: Track Info */}
@@ -38,20 +40,16 @@ export default function Player() {
             {/* Album Art */}
             <div className="w-14 h-14 bg-neutral-800 mr-4 rounded-md flex-shrink-0 overflow-hidden shadow-lg relative group">
                <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800">
-                  {image && image.url ? (
-                     <img src={image.url} width={image.width || 56} height={image.height || 56} alt="Album Art" />
-                  ) : (
-                     <MusicIcon className="w-6 h-6" />
-                  )}
+                  {image ? <img src={image} width={56} height={56} alt="Album Art" /> : <MusicIcon className="w-6 h-6" />}
                </div>
             </div>
             {/* Track Title & Artists */}
             <div className="flex flex-col overflow-hidden">
                <span className="text-sm font-medium hover:underline cursor-pointer truncate text-text">
-                  {current.spotify?.track?.name ?? current.yt?.[0].title}
+                  {spotify?.full_response.track?.name ?? current.yt?.[0].title}
                </span>
                <span className="text-xs text-text-subtle hover:underline cursor-pointer truncate hover:text-text transition-colors">
-                  {current.spotify?.track?.artists.map((a) => a.name).join(', ') ?? current?.yt?.[0].artist}
+                  {spotify?.full_response.track?.artists.map((a) => a.name).join(', ') ?? current?.yt?.[0].author}
                </span>
             </div>
             <button className="ml-4 text-text-subtle hover:text-text transition-colors">
@@ -104,4 +102,3 @@ export default function Player() {
       </div>
    )
 }
-

@@ -149,9 +149,9 @@ export default function spotifyIpc(ipcMain: Electron.IpcMain) {
                   url: playlistRes.external_urls.spotify,
                },
             })
+            console.log(chalk.green(`Spotify playlist created ${playlistId}`))
          } else if (playlist.snapshot_id === playlistRes.snapshot_id) {
             // if snapshot is the same, return cached tracks
-            console.log(chalk.green(`Spotify playlist cache hit for ${playlistId}`))
             const cachedTracks = await prisma.spotifyTrack.findMany({
                where: { playlists: { some: { id: playlist.id } } },
             })
@@ -218,9 +218,24 @@ export default function spotifyIpc(ipcMain: Electron.IpcMain) {
          return {
             ...playlist,
             items: tracksPrisma,
-         }
+         } satisfies SpotifyPlaylistResponse
       } catch (error) {
          logPrettyError(error)
+      }
+   })
+
+   ipcMain.handle('update-spotify-default-yt-video', async (event, spotifyTrackId: string, youtubeVideoId: string) => {
+      console.log(chalk.cyan(youtubeVideoId))
+      try {
+         await prisma.spotifyTrack.update({
+            where: { id: spotifyTrackId },
+            data: {
+               default_yt_video: { connect: { id: youtubeVideoId } },
+            },
+         })
+         console.log(chalk.green(`Set default YT video ${youtubeVideoId} for Spotify track ${spotifyTrackId}`))
+      } catch (err) {
+         logPrettyError(err)
       }
    })
 }

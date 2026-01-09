@@ -1,15 +1,17 @@
-import { useMutation } from '@tanstack/react-query'
 import { useAudioStore } from '../hooks/useAudioStore'
+import { trpc } from '../utils/trpc'
 // TODO updates only in db, not in the store
 
 export default function YtVideoCards() {
    const { play, current } = useAudioStore()
 
-   const mutation = useMutation({
-      mutationFn: (ytId: string) => window.ipcRenderer.invoke('update-spotify-default-yt-video', ytId, current!.spotify?.id),
-   })
+   // const mutation = useMutation({
+   //    mutationFn: (ytId: string) => window.ipcRenderer.invoke('update-spotify-default-yt-video', ytId, current!.spotify?.id),
+   // })
+   const mutation = trpc.spotify.updateDefaultVideo.useMutation()
    const handleClick = (ytId: string) => {
-      mutation.mutate(ytId)
+      if (!current?.spotify?.id) return
+      mutation.mutate({ spotifyTrackId: current?.spotify?.id, youtubeVideoId: ytId })
       play(current!, ytId)
    }
 

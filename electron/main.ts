@@ -4,20 +4,19 @@ import { fileURLToPath, URLSearchParams } from 'node:url'
 import { ipcMain, dialog } from 'electron'
 import path from 'node:path'
 import Store from 'electron-store'
-import discordRpc from './ipc/discord-rpc'
 import youtubeIpc from './ipc/yt'
 import lastfmIpc from './ipc/lastfm'
 import spotifyIpc from './ipc/spotify'
 import aiIpc from './ipc/ai'
 import youtubeScrapIpc from './ipc/yt-scrap'
 import { logPrettyError } from './lib/axios'
+import { createIPCHandler } from 'electron-trpc/main'
+import { appRouter } from './api'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 process.env.APP_ROOT = path.join(__dirname, '..')
-
-const DiscordRPC = require('discord-rpc') as typeof import('discord-rpc')
 
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
@@ -96,12 +95,8 @@ app.on('activate', () => {
 app.whenReady().then(() => {
    createWindow()
 
-   discordRpc(new DiscordRPC.Client({ transport: 'ipc' }), ipcMain)
-   youtubeIpc(ipcMain, store)
-   spotifyIpc(ipcMain)
-   lastfmIpc(ipcMain)
-   aiIpc(ipcMain)
-   youtubeScrapIpc(ipcMain)
-
-   ipcMain.on('update-last-played', (event, id) => store.set('last-played', id))
+   createIPCHandler({
+      router: appRouter,
+      windows: [win!],
+   })
 })

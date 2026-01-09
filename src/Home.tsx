@@ -8,6 +8,7 @@ import { YtPayload, YtPayloadWithPlaylist } from '@/electron/ipc/yt'
 import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
 import Card from './components/Card'
 import YtVideoCards from './components/YtVideoCards'
+import { trpc } from './utils/trpc'
 
 const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 const youtubePlaylistId = 'PLnYVx6d3vk609QDKMgBE52tDqP7fRi1pE'
@@ -17,32 +18,21 @@ export default function Home() {
    const [isPlayerVisible, setIsPlayerVisible] = useState(true)
    const playerRef = useRef<any>(null)
 
-   // --- get spotify playlist ---
-   const spotifyPlaylistQuery = useQuery({
-      queryKey: ['spotify-playlist', spotifyPlaylistId],
-      queryFn: async (): Promise<SpotifyPlaylistResponse> =>
-         await window.ipcRenderer.invoke('get-spotify-playlist', spotifyPlaylistId, true),
-   })
-
-   // --- get youtube playlist ---
-   const ytPlaylistQuery = useQuery({
-      queryKey: ['yt-playlist', youtubePlaylistId],
-      queryFn: async (): Promise<YtPayloadWithPlaylist> => await window.ipcRenderer.invoke('get-yt-playlist-scrap', youtubePlaylistId),
-   })
-
-   // --- get youtube from spotify tracks ---
-   const ytFromSpotifyQuery = useQuery({
-      queryKey: ['yt-from-spotify', spotifyPlaylistId],
-      queryFn: async (): Promise<YtPayload[][]> => {
-         return await Promise.all(
-            (spotifyPlaylistQuery.data?.items || []).map(async (item) => {
-               return await window.ipcRenderer.invoke('yt-from-spotify-scrap', { artist: item.artist, track: item.title }, item.id)
-            })
-         )
-      },
-      enabled: !!spotifyPlaylistQuery.data,
-   })
-
+   const spotifyPlaylistQuery = trpc.spotify.getPlaylist.useQuery(spotifyPlaylistId)
+   const ytPlaylistQuery = trpc.yt.getPlaylist.useQuery(youtubePlaylistId)
+   const ytBatchQuery = trpc.yt.batchFromSpotifyTracks.useQuery(
+      (spotifyPlaylistQuery.data?.items || []).map((item) => ({
+         query: {
+            artist: item.artist,
+            title: item.title,
+         },
+         spotifyId: item.id,
+      })),
+      {
+         enabled: !!spotifyPlaylistQuery.data?.items?.length,
+      }
+   )
+   
    // const [aiGenerating, setAIGenerating] = useState(false)
    // const AIQueries = useQueries({
    //    queries: tracks
@@ -59,13 +49,18 @@ export default function Home() {
    // })
 
    useEffect(() => {
-      if (!spotifyPlaylistQuery.data || !ytFromSpotifyQuery.data) return
+      if (!spotifyPlaylistQuery.data || !ytBatchQuery.data) return
       // TODO spotify are from full_response, but yt from db fields - standardize this
       const spotify = spotifyPlaylistQuery.data.items
       const spotifyFiltered = spotify.filter((item) => item.full_response.track)
 
-      const ytfs = ytFromSpotifyQuery.data.filter((videos) => videos.length > 0)
-      const ytfsMap = new Map<string, YtPayload[]>(ytfs.map((videos, index) => [videos[0].spotify_id!, videos]))
+      const ytfs = ytBatchQuery.data.filter((videos) => videos.length > 0)
+      const ytfsMap = new Map<string, YtPayload[]>()
+      ytfs.forEach((videos) => {
+         if (videos[0]?.spotify_id) {
+            ytfsMap.set(videos[0].spotify_id, videos as any)
+         }
+      })
 
       if (spotify.length !== ytfs.length) {
          alert(`Mismatch in lengths: Spotify items (${spotify.length}) and YouTube items (${ytfs.length}). There might be missing tracks.`)
@@ -78,9 +73,9 @@ export default function Home() {
       ytPlaylistQuery.data?.content.forEach((ytItem) => combined.push({ spotify: null as any, yt: [ytItem] }))
       setTracks(combined)
 
-      console.log('spoti | yt from spoty | combined', spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, combined)
+      console.log('spoti | yt from spoty | combined', spotifyPlaylistQuery.data, ytBatchQuery.data, combined)
       console.log('yt', ytPlaylistQuery.data)
-   }, [spotifyPlaylistQuery.data, ytFromSpotifyQuery.data, ytPlaylistQuery.data, setTracks])
+   }, [spotifyPlaylistQuery.data, ytBatchQuery.data, ytPlaylistQuery.data, setTracks])
 
    // useEffect(() => {
    //    const updatedTracks = tracks.map((track, i) => ({
@@ -93,9 +88,7 @@ export default function Home() {
 
    return (
       <div className="grid grid-cols-[100px_minmax(500px,_1fr)_320px]">
-         <div className="bg-main">
-            
-         </div>
+         <div className="bg-main"></div>
          <div className="p-3">
             <div className="flex gap-2">
                {/* <Button onClick={() => setAIGenerating(true)}>{aiGenerating ? 'Generating..' : 'Generate AI data'}</Button> */}

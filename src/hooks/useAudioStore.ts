@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'react-toastify'
 import { TrackCombined } from '../types/types'
+import { trpc, vanillaTrpc } from '../utils/trpc'
 
 type AudioStore = {
    playerRef: any
@@ -58,34 +59,36 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
 
    play: (data, forceVideoId) => {
       const { playerRef, tracks } = get()
-      console.log(tracks)
       if (!playerRef) return console.warn('⚠️ Player not ready')
       if (!data.yt || !data.yt[0]) return console.warn('⚠️ No youtube video provided')
 
-      // update default yt video in spotify track in list
-      if (forceVideoId && data.yt.length > 1 && data.spotify?.id) {
-         const currentInListId = tracks.findIndex((t) => t.spotify?.id === data.spotify?.id)
-         console.log('Updating default yt video in store for spotify track at index', currentInListId)
-         const updatedTracks = tracks.map((track, id) => {
-            if (id === currentInListId && track.spotify) {
-               return {
-                  ...track,
-                  spotify: {
-                     ...track.spotify,
-                     default_yt_video_id: forceVideoId,
-                  },
-               }
-            }
-            return track
-         })
-
-         set({ tracks: updatedTracks })
-      }
-
       const videoId = forceVideoId ?? data.spotify?.default_yt_video_id ?? data.yt?.[0].id
       try {
-         window.ipcRenderer.send('update-last-played', videoId) // TODO implement on client
-         window.ipcRenderer.send('update-discord-presence', data)
+         if (forceVideoId && data.yt.length > 1 && data.spotify?.id) {
+            // Update default video locally
+            const currentInListId = tracks.findIndex((t) => t.spotify?.id === data.spotify?.id)
+            const updatedTracks = tracks.map((track, id) => {
+               if (id === currentInListId && track.spotify) {
+                  return {
+                     ...track,
+                     spotify: {
+                        ...track.spotify,
+                        default_yt_video_id: forceVideoId,
+                     },
+                  }
+               }
+               return track
+            })
+            set({ tracks: updatedTracks })
+
+            // Update default video in database
+            vanillaTrpc.spotify.updateDefaultVideo.mutate({
+               spotifyTrackId: data.spotify.id,
+               youtubeVideoId: videoId,
+            })
+         }
+
+         vanillaTrpc.discord.updatePresence.mutate(data)
 
          playerRef.loadVideoById(videoId)
          playerRef.playVideo()

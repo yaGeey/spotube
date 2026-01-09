@@ -1,8 +1,8 @@
 import { youtube_v3 } from 'googleapis'
-import { YtPayload } from '@/electron/ipc/yt'
 import type { VideoCompact } from 'youtubei'
 import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
 import { SpotifyTrack } from '@/generated/prisma/client'
+import { YtPayload } from '@/electron/routers/yt'
 
 declare global {
    namespace PrismaJson {
@@ -30,6 +30,6 @@ export type TrackCombined = {
    ai?: PrismaJson.AiMusicData | null
 }
 
-export type Prettify<T> = {
-   [K in keyof T]: T[K]
-} & NonNullable<unknown>
+// export type Prettify<T> = {
+//    [K in keyof T]: T[K]
+// } & NonNullable<unknown>

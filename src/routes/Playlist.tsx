@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import YouTube from 'react-youtube' // TODO
-import { useAudioStore } from './hooks/useAudioStore'
-import Button from './components/Button'
-import { TrackCombined } from './types/types'
-import { useMutation, useQueries, useQuery } from '@tanstack/react-query'
+import { useAudioStore } from '../hooks/useAudioStore'
+import Button from '../components/Button'
+import { TrackCombined } from '../types/types'
 import { YtPayload, YtPayloadWithPlaylist } from '@/electron/ipc/yt'
-import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
-import Card from './components/Card'
-import YtVideoCards from './components/YtVideoCards'
-import { trpc } from './utils/trpc'
+import YtVideoCards from '../components/YtVideoCards'
+import { trpc } from '../utils/trpc'
+import TracksTable from '../components/Table'
+import { useParams } from 'react-router-dom'
 
-const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
+// const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
+// const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
 const youtubePlaylistId = 'PLnYVx6d3vk609QDKMgBE52tDqP7fRi1pE'
 
-export default function Home() {
-   const { current, play, stop, setPlayerRef, setIsPlaying, setTracks, tracks } = useAudioStore()
+export default function Playlist() {
+   const { id } = useParams()
+   const spotifyPlaylistId = id || ''
+
+   const { play, stop, setPlayerRef, setIsPlaying, tracks, setTracks } = useAudioStore()
    const [isPlayerVisible, setIsPlayerVisible] = useState(true)
    const playerRef = useRef<any>(null)
 
@@ -23,7 +26,7 @@ export default function Home() {
    const ytBatchQuery = trpc.yt.batchFromSpotifyTracks.useQuery(
       (spotifyPlaylistQuery.data?.items || []).map((item) => ({
          query: {
-            artist: item.artist,
+            artist: item.artists.split(',')[0],
             title: item.title,
          },
          spotifyId: item.id,
@@ -32,21 +35,6 @@ export default function Home() {
          enabled: !!spotifyPlaylistQuery.data?.items?.length,
       }
    )
-   
-   // const [aiGenerating, setAIGenerating] = useState(false)
-   // const AIQueries = useQueries({
-   //    queries: tracks
-   //       .filter((a) => a.spotify)
-   //       .map((item) => ({
-   //          queryKey: ['ai-music-data', item.spotify?.id],
-   //          queryFn: async () => {
-   //             const title = item.spotify!.track?.name
-   //             const artist = item.spotify!.track?.artists.map((a) => a.name).join(', ') || ''
-   //             return await window.ipcRenderer.invoke('ai-music-data', title, artist)
-   //          },
-   //          enabled: false,
-   //       })),
-   // })
 
    useEffect(() => {
       if (!spotifyPlaylistQuery.data || !ytBatchQuery.data) return
@@ -62,37 +50,20 @@ export default function Home() {
          }
       })
 
-      if (spotify.length !== ytfs.length) {
-         alert(`Mismatch in lengths: Spotify items (${spotify.length}) and YouTube items (${ytfs.length}). There might be missing tracks.`)
-      }
-
       const combined = spotifyFiltered.map((item) => ({
          spotify: item,
          yt: ytfsMap.get(item.id) || null,
       })) satisfies TrackCombined[]
       ytPlaylistQuery.data?.content.forEach((ytItem) => combined.push({ spotify: null as any, yt: [ytItem] }))
-      setTracks(combined)
 
-      console.log('spoti | yt from spoty | combined', spotifyPlaylistQuery.data, ytBatchQuery.data, combined)
-      console.log('yt', ytPlaylistQuery.data)
+      setTracks(combined)
    }, [spotifyPlaylistQuery.data, ytBatchQuery.data, ytPlaylistQuery.data, setTracks])
 
-   // useEffect(() => {
-   //    const updatedTracks = tracks.map((track, i) => ({
-   //       ...track,
-   //       ai: AIQueries[i]?.data || null,
-   //    }))
-   //    setTracks(updatedTracks)
-   // }, [AIQueries.map((q) => q.data)])
-   // console.log(tracks)
-
    return (
-      <div className="grid grid-cols-[100px_minmax(500px,_1fr)_320px]">
-         <div className="bg-main"></div>
+      <div className="grid grid-cols-[minmax(500px,_1fr)_320px]">
          <div className="p-3">
             <div className="flex gap-2">
-               {/* <Button onClick={() => setAIGenerating(true)}>{aiGenerating ? 'Generating..' : 'Generate AI data'}</Button> */}
-               <Button onClick={() => play(tracks[Math.round(Math.random() * tracks.length - 1)])}>PLAY random</Button>
+               <Button onClick={() => play({ track: tracks[Math.round(Math.random() * tracks.length - 1)] })}>PLAY random</Button>
                <Button onClick={() => stop()}>STOP</Button>
                <Button onClick={() => setIsPlayerVisible((p) => !p)}>toggle player</Button>
                <Button onClick={() => console.log(playerRef.current?.getCurrentTime() + ' / ' + playerRef.current.getDuration())}>
@@ -113,19 +84,15 @@ export default function Home() {
                   },
                }}
                onReady={(event) => {
-                  console.log('✅ YouTube Player ready', event.target)
                   playerRef.current = event.target
+                  console.log('🎬 YouTube Player ready', event.target)
                   setPlayerRef(event.target)
                }}
                onPlay={() => setIsPlaying(true)}
                onPause={() => setIsPlaying(false)}
                onEnd={() => setIsPlaying(false)}
             />
-            <div className="flex flex-col gap-1">
-               {tracks.map((track, i) => (
-                  <Card key={track.yt?.[0].id} data={track} index={i} />
-               ))}
-            </div>
+            <TracksTable data={tracks} />
          </div>
          <YtVideoCards />
       </div>

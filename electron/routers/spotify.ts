@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure } from '../trpc'
 import prisma from '../lib/prisma'
-import { getSpotifyToken } from '../lib/spotify'
+import { createAndSyncPlaylist, getSpotifyToken } from '../lib/spotify'
 import api from '../lib/axios'
 import chalk from 'chalk'
 import { BrowserWindow } from 'electron'
@@ -25,40 +25,21 @@ export const spotifyRouter = router({
 
    //
    getPlaylist: publicProcedure.input(z.string()).query(async ({ input }): Promise<SpotifyPlaylistResponse> => {
-      const accessToken = await getSpotifyToken().then((res) => res?.access_token)
-      if (!accessToken) throw new Error('No Spotify access token available')
+      const { accessToken, playlist, playlistRes } = await createAndSyncPlaylist(input)
 
-      // fetch playlist with metadata
-      const { data: playlistRes } = await api.get<SpotifyApi.SinglePlaylistResponse>(`https://api.spotify.com/v1/playlists/${input}`, {
-         headers: { Authorization: `Bearer ${accessToken}` },
+      const cachedTracks = await prisma.spotifyTrack.findMany({
+         where: { playlists: { some: { id: playlist.id } } },
       })
 
-      // create playlist in db if not exists
-      let playlist = await prisma.spotifyPlaylist.findUnique({
-         where: { id: playlistRes.id },
-      })
-      if (!playlist) {
-         playlist = await prisma.spotifyPlaylist.create({
-            data: {
-               id: playlistRes.id,
-               title: playlistRes.name,
-               owner: playlistRes.owner.display_name || 'Unknown Owner',
-               thumbnail_url: playlistRes.images[0]?.url,
-               snapshot_id: playlistRes.snapshot_id,
-               url: playlistRes.external_urls.spotify,
-            },
-         })
-         console.log(chalk.blue(`Spotify playlist created ${input}`))
-      } else if (playlist.snapshot_id === playlistRes.snapshot_id) {
-         // if snapshot is the same, return cached tracks
-         const cachedTracks = await prisma.spotifyTrack.findMany({
-            where: { playlists: { some: { id: playlist.id } } },
-         })
+      // Snapshot співпадає І треки існують у базі
+      // Якщо це новий плейлист, cachedTracks.length буде 0, і ми підемо фечити дані далі
+      if (playlist.snapshot_id === playlistRes.snapshot_id && cachedTracks.length === playlistRes.tracks.total) {
          return {
             ...playlist,
             items: cachedTracks,
-         } satisfies SpotifyPlaylistResponse
+         }
       }
+      console.log(chalk.yellow('Spotify playlist snapshot changed or no cached tracks, fetching tracks...'))
 
       // pagination
       const tracks = [...playlistRes.tracks.items]
@@ -82,7 +63,7 @@ export const spotifyRouter = router({
                   id: item.track.id,
                   title: item.track.name,
                   full_response: item,
-                  artist: item.track.artists.map((artist) => artist.name).join(', '),
+                  artists: item.track.artists.map((artist) => artist.name).join(', '),
                   playlists: { connect: { id: playlist!.id } },
                },
             })
@@ -91,13 +72,13 @@ export const spotifyRouter = router({
       const tracksPrisma = await prisma.$transaction(operations)
 
       // update snapshot id
-      playlist = await prisma.spotifyPlaylist.update({
+      const newPlaylist = await prisma.spotifyPlaylist.update({
          where: { id: playlist.id },
          data: { snapshot_id: playlistRes.snapshot_id },
       })
 
       return {
-         ...playlist,
+         ...newPlaylist,
          items: tracksPrisma,
       }
    }),
@@ -147,9 +128,9 @@ export const spotifyRouter = router({
                   headers: {
                      Authorization:
                         'Basic ' +
-                        Buffer.from(`${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`).toString(
-                           'base64'
-                        ),
+                        Buffer.from(
+                           `${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`
+                        ).toString('base64'),
                      'Content-Type': 'application/x-www-form-urlencoded',
                   },
                }
@@ -171,5 +152,16 @@ export const spotifyRouter = router({
             authWindow.close()
          }
       })
+   }),
+
+   getPlaylists: publicProcedure.query(() => prisma.spotifyPlaylist.findMany()),
+
+   createPlaylist: publicProcedure.input(z.string()).mutation(async ({ input }) => {
+      const { playlist } = await createAndSyncPlaylist(input)
+      return playlist
+   }),
+
+   deletePlaylist: publicProcedure.input(z.string()).mutation(async ({ input }) => {
+      await prisma.spotifyPlaylist.deleteMany({ where: { id: input } })
    }),
 })

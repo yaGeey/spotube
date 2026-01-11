@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import Player from './components/Player'
 import Header from './components/Header'
+import Playlists from './components/nav/Playlists'
 
 export default function Layout() {
    return (
@@ -18,9 +19,10 @@ export default function Layout() {
                Test
             </NavLink>
          </nav>
-         <main>
+         <div className="flex">
+            <Playlists />
             <Outlet />
-         </main>
+         </div>
          <Player />
       </div>
    )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import useTime from './hooks/useTime'
+import useTime from '../hooks/useTime'
 
 export default function Auth() {
    const [token, setToken] = useState<string | null>(null)

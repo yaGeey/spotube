@@ -15,7 +15,7 @@ datasource db {
 model SpotifyTrack {
   id            String @id
   title         String
-  artist        String // TODO artists
+  artists       String // TODO artists
   /// [SpotifyPlaylistItem]
   full_response Json
 

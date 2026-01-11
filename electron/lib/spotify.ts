@@ -2,6 +2,7 @@ import api, { logPrettyError } from '../lib/axios'
 import { win, store } from '../main'
 import chalk from 'chalk'
 import axios from 'axios'
+import prisma from './prisma'
 
 export async function getSpotifyToken(): Promise<{ access_token: string; expires_at: number } | null> {
    const token = store.get('spotify.access_token') as string | undefined
@@ -27,7 +28,9 @@ export async function getSpotifyToken(): Promise<{ access_token: string; expires
             headers: {
                Authorization:
                   'Basic ' +
-                  Buffer.from(`${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`).toString('base64'),
+                  Buffer.from(`${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`).toString(
+                     'base64'
+                  ),
                'Content-Type': 'application/x-www-form-urlencoded',
             },
          }
@@ -42,4 +45,36 @@ export async function getSpotifyToken(): Promise<{ access_token: string; expires
       logPrettyError(`Token refresh error: ${error}`)
       return null
    }
+}
+
+// TODO Metadata Sync
+export async function createAndSyncPlaylist(playlistId: string) {
+   const accessToken = await getSpotifyToken().then((res) => res?.access_token)
+   if (!accessToken) throw new Error('No Spotify access token available')
+
+   // fetch playlist with metadata
+   const { data: playlistRes } = await api.get<SpotifyApi.SinglePlaylistResponse>(
+      `https://api.spotify.com/v1/playlists/${playlistId}`,
+      {
+         headers: { Authorization: `Bearer ${accessToken}` },
+      }
+   )
+
+   let playlist = await prisma.spotifyPlaylist.findUnique({
+      where: { id: playlistRes.id },
+   })
+   if (!playlist) {
+      playlist = await prisma.spotifyPlaylist.create({
+         data: {
+            id: playlistRes.id,
+            title: playlistRes.name,
+            owner: playlistRes.owner.display_name || 'Unknown Owner',
+            thumbnail_url: playlistRes.images[0]?.url,
+            snapshot_id: playlistRes.snapshot_id,
+            url: playlistRes.external_urls.spotify,
+         },
+      })
+   }
+   
+   return {playlist, playlistRes, accessToken}
 }

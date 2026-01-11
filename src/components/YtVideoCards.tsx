@@ -12,7 +12,7 @@ export default function YtVideoCards() {
    const handleClick = (ytId: string) => {
       if (!current?.spotify?.id) return
       mutation.mutate({ spotifyTrackId: current?.spotify?.id, youtubeVideoId: ytId })
-      play(current!, ytId)
+      play({ track: current!, forceVideoId: ytId })
    }
 
    if (!current?.yt || current.yt.length <= 1 || !current.spotify?.id) return null

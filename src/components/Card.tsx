@@ -22,14 +22,21 @@ export default function Card({ data, index }: { data: TrackCombined; index: numb
       if (title && artist) navigate(`/ai?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`)
    }
    return (
-      <li className={tw('flex items-center gap-3 text-text-subtle hover:bg-white/10')} onDoubleClick={(e) => play(data)}>
+      <li
+         className={tw('flex items-center gap-3 text-text-subtle hover:bg-white/10')}
+         onDoubleClick={(e) => play({ track: data })}
+      >
          {isPlaying ? <AnimatedEqualizer /> : <span>{index}</span>}
          {/* name */}
          <div className="flex items-center w-[30%] min-w-[180px]">
             {/* Album Art */}
             <div className="w-14 h-14 bg-neutral-800 mr-4 rounded-md flex-shrink-0 overflow-hidden shadow-lg relative group">
                <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800">
-                  {image ? <img src={image} alt="Album Art" className="w-full h-full object-cover" /> : <MusicIcon className="w-6 h-6" />}
+                  {image ? (
+                     <img src={image} alt="Album Art" className="w-full h-full object-cover" />
+                  ) : (
+                     <MusicIcon className="w-6 h-6" />
+                  )}
                </div>
             </div>
             {/* Track Title & Artists */}
@@ -52,6 +59,8 @@ export default function Card({ data, index }: { data: TrackCombined; index: numb
          <span>{formatRelativeTime(data.spotify?.full_response.added_at ?? yt?.[0].published_at ?? new Date())}</span>
          <span>{formatDuration(yt?.[0].duration_ms ? yt?.[0].duration_ms / 1000 : 0)}</span>
          <span className="text-red-400">{!spotify ? 'yt' : ' '}</span>
+         <span>artist:{data.yt?.[0]?.lastFm?.artist?.tags.tag.map((t) => t.name).join(', ')}</span>
+         <span>track:{data.yt?.[0]?.lastFm?.track?.toptags.tag.map((t) => t.name).join(', ')}</span>
       </li>
    )
 }

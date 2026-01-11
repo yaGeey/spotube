@@ -6,7 +6,7 @@ import { trpc, vanillaTrpc } from '../utils/trpc'
 type AudioStore = {
    playerRef: any
    current: TrackCombined | null
-   play: (data: TrackCombined, forceVideoId?: string) => void
+   play: ({ track, forceVideoId, skipHistory }: { track: TrackCombined; forceVideoId?: string; skipHistory?: boolean }) => void
    stop: () => void
    setPlayerRef: (ref: any) => void
    toggle: () => void
@@ -17,7 +17,9 @@ type AudioStore = {
    history: TrackCombined[]
    currentIndexAtHistory: number
    back: () => void
-   next: () => void
+   next: (isRandom: boolean) => void
+   addToHistory: (track: TrackCombined) => void
+   clearHistory: () => void
 }
 
 export const useAudioStore = create<AudioStore>((set, get) => ({
@@ -40,33 +42,54 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       const curIndex = currentIndexAtHistory - 1
       if (curIndex < 0) return toast.info('No previously played tracks')
       const prevTrack = history[curIndex]
+      console.log('⏮️ Back to:', prevTrack, history, curIndex)
       set({ currentIndexAtHistory: curIndex })
-      play(prevTrack)
+      play({ track: prevTrack, skipHistory: true }) // skipHistory = true
    },
 
-   next: () => {
-      const { history, play, currentIndexAtHistory, tracks } = get()
-      const curIndex = currentIndexAtHistory + 1
-      if (curIndex === history.length) {
-         const random = Math.floor(Math.random() * tracks.length)
-         set({ history: [...history, tracks[random]], currentIndexAtHistory: curIndex })
-         return play(tracks[random])
+   next: (isRandom) => {
+      const { history, play, currentIndexAtHistory, tracks, current, addToHistory } = get()
+
+      // рухаємось по вже існуючій історії (наприклад, користувач натискав "Back")
+      const nextIndex = currentIndexAtHistory + 1
+      if (nextIndex < history.length) {
+         const nextTrack = history[nextIndex]
+         set({ currentIndexAtHistory: nextIndex })
+         play({ track: nextTrack, skipHistory: true}) // skipHistory = true
+         return
       }
-      const nextTrack = history[curIndex]
-      set({ currentIndexAtHistory: curIndex })
-      play(nextTrack)
+
+      // Ми в кінці історії, треба обрати НОВИЙ трек
+      let newTrack: TrackCombined | null = null
+      const currentInListId = tracks.findIndex((t) => t.spotify?.id === current?.spotify?.id)
+      if (isRandom) {
+         // TODO Тут можна додати перевірку, щоб рандом не видав той самий трек, що грає зараз
+         const newId = Math.floor(Math.random() * tracks.length)
+         newTrack = tracks[newId]
+      } else {
+         // Перевіряємо, чи є наступний трек. Якщо ні - newTrack залишиться null
+         if (currentInListId !== -1 && currentInListId < tracks.length - 1) {
+            newTrack = tracks[currentInListId + 1]
+         }
+      }
+      // Якщо плейлист закінчився і треку немає - нічого не робимо або зупиняємо
+      if (!newTrack) return
+
+      play({track: newTrack })
    },
 
-   play: (data, forceVideoId) => {
-      const { playerRef, tracks } = get()
+   play: (input) => {
+      const { playerRef, tracks, addToHistory } = get()
       if (!playerRef) return console.warn('⚠️ Player not ready')
-      if (!data.yt || !data.yt[0]) return console.warn('⚠️ No youtube video provided')
+      
+      const { track, forceVideoId, skipHistory } = input
+      if (!track.yt || !track.yt[0]) return console.warn('⚠️ No youtube video provided')
 
-      const videoId = forceVideoId ?? data.spotify?.default_yt_video_id ?? data.yt?.[0].id
+      const videoId = forceVideoId ?? track.spotify?.default_yt_video_id ?? track.yt?.[0].id
       try {
-         if (forceVideoId && data.yt.length > 1 && data.spotify?.id) {
+         if (forceVideoId && track.yt.length > 1 && track.spotify?.id) {
             // Update default video locally
-            const currentInListId = tracks.findIndex((t) => t.spotify?.id === data.spotify?.id)
+            const currentInListId = tracks.findIndex((t) => t.spotify?.id === track.spotify?.id)
             const updatedTracks = tracks.map((track, id) => {
                if (id === currentInListId && track.spotify) {
                   return {
@@ -83,16 +106,19 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
 
             // Update default video in database
             vanillaTrpc.spotify.updateDefaultVideo.mutate({
-               spotifyTrackId: data.spotify.id,
+               spotifyTrackId: track.spotify.id,
                youtubeVideoId: videoId,
             })
          }
 
-         vanillaTrpc.discord.updatePresence.mutate(data)
+         vanillaTrpc.discord.updatePresence.mutate(track)
 
          playerRef.loadVideoById(videoId)
          playerRef.playVideo()
-         set({ current: data, isPlaying: true })
+         if (!skipHistory) {
+            addToHistory(track)
+         }
+         set({ current: track, isPlaying: true })
       } catch (error) {
          console.error('❌ Play error:', error)
          toast.error('Failed to play video')
@@ -103,7 +129,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
    stop: () => {
       const { playerRef } = get()
       if (!playerRef) return console.warn('⚠️ Player not ready')
-      window.ipcRenderer.send('clear-discord-presence')
+      vanillaTrpc.discord.clear.mutate()
       playerRef.stopVideo()
       set({ isPlaying: false })
    },
@@ -114,12 +140,24 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       // const state = playerRef.getPlayerState()
       if (isPlaying) {
          playerRef.pauseVideo()
-         window.ipcRenderer.send('clear-discord-presence')
+         vanillaTrpc.discord.clear.mutate()
          set({ isPlaying: false })
       } else {
          playerRef.playVideo()
-         window.ipcRenderer.send('update-discord-presence', current)
+         if (current) vanillaTrpc.discord.updatePresence.mutate(current)
          set({ isPlaying: true })
       }
    },
+
+   addToHistory: (track) => {
+      const { history, currentIndexAtHistory } = get()
+      // Логіка: відрізаємо "майбутнє", якщо ми були в минулому, і додаємо новий трек
+      const newHistory = history.slice(0, currentIndexAtHistory + 1)
+      newHistory.push(track)
+      set({
+         history: newHistory,
+         currentIndexAtHistory: newHistory.length - 1,
+      })
+   },
+   clearHistory: () => set({ history: [], currentIndexAtHistory: -1 }),
 }))

@@ -4,9 +4,11 @@ import PlayerTrackProgress from './PlayerTrackProgress'
 import PlayerVolume from './PlayerVolume'
 // prettier-ignore
 import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, SkipForwardIcon, RepeatIcon, Mic2Icon, ListMusicIcon, MonitorSpeakerIcon } from './Icons'
+import { twMerge } from 'tailwind-merge'
 
 export default function Player() {
    const { current, toggle, playerRef, isPlaying, next, back } = useAudioStore()
+   const [shuffle, setShuffle] = useState(false)
 
    useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -21,7 +23,7 @@ export default function Player() {
          }
          if (e.code === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault()
-            next()
+            next(true)
          }
       }
 
@@ -60,7 +62,11 @@ export default function Player() {
          {/* Center: Controls */}
          <div className="flex flex-col items-center max-w-[40%] w-full">
             <div className="flex items-center gap-6 mb-2">
-               <button className="text-text-subtle hover:text-text transition-colors" title="Shuffle">
+               <button
+                  className={twMerge('text-text-subtle hover:text-text transition-colors', shuffle && 'text-lighter')}
+                  title="Shuffle"
+                  onClick={() => setShuffle((s) => !s)}
+               >
                   <ShuffleIcon className="w-4 h-4" />
                </button>
                <button className="text-text-subtle hover:text-text transition-colors" title="Previous" onClick={back}>
@@ -76,7 +82,7 @@ export default function Player() {
                      <PlayIcon className="w-5 h-5 fill-current translate-x-0.5" />
                   )}
                </button>
-               <button className="text-text-subtle hover:text-text transition-colors" title="Next" onClick={next}>
+               <button className="text-text-subtle hover:text-text transition-colors" title="Next" onClick={() => next(shuffle)}>
                   <SkipForwardIcon className="w-5 h-5" />
                </button>
                <button className="text-text-subtle hover:text-text transition-colors" title="Repeat">

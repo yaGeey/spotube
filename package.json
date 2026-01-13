@@ -43,6 +43,7 @@
       "duck-duck-scrape": "^2.2.7",
       "electron-store": "^11.0.2",
       "electron-trpc": "^0.7.1",
+      "genius-lyrics": "^4.4.7",
       "googleapis": "^166.0.0",
       "p-limit": "^7.2.0",
       "p-retry": "^7.1.1",

@@ -1,13 +1,9 @@
 import { useAudioStore } from '../hooks/useAudioStore'
 import { trpc } from '../utils/trpc'
-// TODO updates only in db, not in the store
 
 export default function YtVideoCards() {
-   const { play, current } = useAudioStore()
+   const { play, current, updateDefaultVideo } = useAudioStore()
 
-   // const mutation = useMutation({
-   //    mutationFn: (ytId: string) => window.ipcRenderer.invoke('update-spotify-default-yt-video', ytId, current!.spotify?.id),
-   // })
    const mutation = trpc.spotify.updateDefaultVideo.useMutation()
    const handleClick = (ytId: string) => {
       if (!current?.spotify?.id) return
@@ -20,9 +16,10 @@ export default function YtVideoCards() {
       <div className="bg-main flex flex-col gap-2">
          {current.yt.map((v) => (
             <div
+               key={v.id}
                className="bg-gray-800 rounded-lg p-4 flex flex-col gap-2 text-nowrap truncate"
                onClick={() => handleClick(v.id)}
-               key={v.id}
+               onContextMenu={() => updateDefaultVideo({track: current, youtubeVideoId: v.id})}
             >
                <img src={v.thumbnail_url} alt={v.title} className="w-full rounded-md" />
                <h3 className="text-white font-semibold text-lg">{v.title}</h3>

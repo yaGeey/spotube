@@ -24,9 +24,16 @@ declare global {
    }
 }
 
-export type TrackCombined = {
-   yt?: YtPayload[] | null
-   spotify?: SpotifyTrack | null
+export type TrackCombined = (
+   | {
+        spotify: SpotifyTrack
+        yt: YtPayload[] | null
+     }
+   | {
+        yt: [YtPayload]
+        spotify: null
+     }
+) & {
    ai?: PrismaJson.AiMusicData | null
 }
 

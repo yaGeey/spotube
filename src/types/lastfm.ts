@@ -59,7 +59,7 @@ declare global {
             published: string
             summary: string
             content: string
-         }
+         } | null
          artist: string
          image: { '#text': string; size: string }[]
          tags: {

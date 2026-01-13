@@ -201,7 +201,7 @@ export default function spotifyIpc(ipcMain: Electron.IpcMain) {
                      id: item.track.id,
                      title: item.track.name,
                      full_response: item,
-                     artist: item.track.artists.map((artist) => artist.name).join(', '),
+                     artists: item.track.artists.map((artist) => artist.name).join(', '),
                      playlists: { connect: { id: playlist!.id } },
                   },
                })

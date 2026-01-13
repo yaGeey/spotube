@@ -16,6 +16,9 @@ import { TrackCombined } from '../types/types'
 import { formatDuration, formatRelativeTime } from '../utils/time'
 import { MusicIcon } from './Icons'
 import AnimatedEqualizer from './icons/AnimatedEqualizer'
+import Button from './Button'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCircleInfo } from '@fortawesome/free-solid-svg-icons'
 
 // Створюємо хелпер для типізації колонок
 const columnHelper = createColumnHelper<TrackCombined>()
@@ -53,15 +56,25 @@ export default function TracksTable({ data }: { data: TrackCombined[] }) {
          }),
 
          // Column 2: Info (Art + Title + Artist)
-         columnHelper.accessor((row) => row.spotify?.title ?? row.yt?.[0].title, {
+         columnHelper.accessor((row) => row.spotify?.artists.split(', ') ?? [row.yt?.[0].author], {
             id: 'info',
             header: 'Info',
+            filterFn: 'arrIncludesSome',
             cell: (info) => {
                const data = info.row.original
                const spotify = data.spotify?.full_response.track
                const yt = data.yt
                const image = spotify?.album.images[0].url ?? yt?.[0].thumbnail_url
                const isPlaying = current?.yt?.[0].id === yt?.[0].id
+
+               const filterValue = info.column.getFilterValue() as string[] | undefined
+               const combinedArtists: { name: string; id: string }[] = [
+                  ...(spotify
+                     ? spotify.artists.map((a) => ({ name: a.name, id: a.id }))
+                     : yt
+                     ? [{ name: yt[0].author, id: yt[0].id + Math.random().toString() }]
+                     : []),
+               ]
 
                const handleNavigateToAI = (e: React.MouseEvent) => {
                   e.stopPropagation() // Зупиняємо спливання, щоб не спрацював row click
@@ -89,23 +102,53 @@ export default function TracksTable({ data }: { data: TrackCombined[] }) {
                         {/* Text Info */}
                         <div className="flex flex-col overflow-hidden mr-4">
                            <span
-                              onClick={handleNavigateToAI}
+                              // onClick={handleNavigateToAI}
                               className={twMerge(
                                  'text-text font-medium hover:underline cursor-pointer truncate text-sm md:text-base',
                                  isPlaying && 'text-lighter'
                               )}
                            >
                               {spotify?.name ?? yt?.[0].title}
+                              <InfoIcon data={yt?.[0].lastFm?.track?.wiki?.content} />
                            </span>
-                           <span
-                              className="text-xs text-text-subtle hover:underline cursor-pointer truncate hover:text-text transition-colors"
+
+                           <div
+                              className="text-xs text-text-subtle cursor-pointer truncate transition-colors"
                               onClick={(e) => {
                                  e.stopPropagation()
                                  if (!yt || yt.length === 0) return
                               }}
                            >
-                              {spotify?.artists.map((a) => a.name).join(', ') ?? yt?.[0].author}
-                           </span>
+                              {/* TODO lastfm for each artist, noy only first */}
+                              {combinedArtists.map((a, index) => {
+                                 const isActive = filterValue?.includes(a.name) ?? false
+                                 return (
+                                    <span key={a.id}>
+                                       <span
+                                          onClick={(e) => {
+                                             e.stopPropagation()
+                                             if (isActive) {
+                                                const newFilter = filterValue?.filter((name) => name !== a.name)
+                                                info.column.setFilterValue(newFilter)
+                                             } else {
+                                                info.column.setFilterValue([...(filterValue ?? []), a.name])
+                                             }
+                                          }}
+                                          className={twMerge(
+                                             'cursor-pointer hover:text-white transition-colors hover:underline',
+                                             isActive ? 'text-green-400 font-bold underline' : ''
+                                          )}
+                                       >
+                                          {a.name}
+                                       </span>
+
+                                       {index < combinedArtists.length - 1 && ', '}
+                                    </span>
+                                 )
+                              })}
+                              <InfoIcon data={yt?.[0].lastFm?.artist?.bio?.content} />
+                              <InfoIcon data={yt?.[0].lastFm?.album?.wiki?.content} />
+                           </div>
                         </div>
                      </div>
                   </div>
@@ -201,10 +244,19 @@ export default function TracksTable({ data }: { data: TrackCombined[] }) {
       getFilteredRowModel: getFilteredRowModel(),
    })
 
-   // useEffect(
-   //    () => setTracks(table.getFilteredRowModel().rows.map((row) => row.original)),
-   //    [setTracks, table.getFilteredRowModel().rows]
-   // )
+   useEffect(() => {
+      const newRows = table.getFilteredRowModel().rows.map((row) => row.original)
+
+      // Отримуємо поточні треки зі стору (через getState, щоб не створювати зайвих підписок,
+      const currentTracks = useAudioStore.getState().tracks
+
+      // Порівнюємо рядки як текст.
+      if (JSON.stringify(newRows) !== JSON.stringify(currentTracks)) {
+         console.log('🔄 Updating tracks from table filter...')
+         setTracks(newRows)
+      }
+   }, [setTracks, table.getFilteredRowModel().rows])
+
    return (
       <table className="w-full text-left border-collapse">
          <thead>
@@ -242,5 +294,17 @@ export default function TracksTable({ data }: { data: TrackCombined[] }) {
             })}
          </tbody>
       </table>
+   )
+}
+
+function InfoIcon({ data }: { data: string | undefined | null }) {
+   if (!data) return null
+   const cleared = data.split('<a')[0]
+   return (
+      <FontAwesomeIcon
+         className="text-xs text-text-subtle hover:text-white transition-colors ml-1 cursor-pointer"
+         icon={faCircleInfo}
+         onClick={() => console.log(cleared)}
+      />
    )
 }

@@ -7,6 +7,7 @@ type AudioStore = {
    playerRef: any
    current: TrackCombined | null
    play: ({ track, forceVideoId, skipHistory }: { track: TrackCombined; forceVideoId?: string; skipHistory?: boolean }) => void
+   updateDefaultVideo: ({ track, youtubeVideoId }: { track: TrackCombined; youtubeVideoId: string }) => void
    stop: () => void
    setPlayerRef: (ref: any) => void
    toggle: () => void
@@ -17,9 +18,11 @@ type AudioStore = {
    history: TrackCombined[]
    currentIndexAtHistory: number
    back: () => void
-   next: (isRandom: boolean) => void
+   next: () => void
    addToHistory: (track: TrackCombined) => void
    clearHistory: () => void
+   isRandom: boolean
+   setIsRandom: (isRandom: boolean) => void
 }
 
 export const useAudioStore = create<AudioStore>((set, get) => ({
@@ -29,7 +32,8 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
    tracks: [],
    history: [],
    currentIndexAtHistory: -1,
-
+   isRandom: false,
+   setIsRandom: (isRandom) => set({ isRandom }),
    setPlayerRef: (ref) => {
       ref.hideVideoInfo()
       set({ playerRef: ref })
@@ -47,15 +51,15 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       play({ track: prevTrack, skipHistory: true }) // skipHistory = true
    },
 
-   next: (isRandom) => {
-      const { history, play, currentIndexAtHistory, tracks, current, addToHistory } = get()
+   next: () => {
+      const { history, play, currentIndexAtHistory, tracks, current, isRandom } = get()
 
       // рухаємось по вже існуючій історії (наприклад, користувач натискав "Back")
       const nextIndex = currentIndexAtHistory + 1
       if (nextIndex < history.length) {
          const nextTrack = history[nextIndex]
          set({ currentIndexAtHistory: nextIndex })
-         play({ track: nextTrack, skipHistory: true}) // skipHistory = true
+         play({ track: nextTrack, skipHistory: true }) // skipHistory = true
          return
       }
 
@@ -75,42 +79,16 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       // Якщо плейлист закінчився і треку немає - нічого не робимо або зупиняємо
       if (!newTrack) return
 
-      play({track: newTrack })
+      play({ track: newTrack })
    },
 
-   play: (input) => {
-      const { playerRef, tracks, addToHistory } = get()
+   play: ({ track, forceVideoId, skipHistory }) => {
+      const { playerRef, addToHistory } = get()
       if (!playerRef) return console.warn('⚠️ Player not ready')
-      
-      const { track, forceVideoId, skipHistory } = input
       if (!track.yt || !track.yt[0]) return console.warn('⚠️ No youtube video provided')
 
       const videoId = forceVideoId ?? track.spotify?.default_yt_video_id ?? track.yt?.[0].id
       try {
-         if (forceVideoId && track.yt.length > 1 && track.spotify?.id) {
-            // Update default video locally
-            const currentInListId = tracks.findIndex((t) => t.spotify?.id === track.spotify?.id)
-            const updatedTracks = tracks.map((track, id) => {
-               if (id === currentInListId && track.spotify) {
-                  return {
-                     ...track,
-                     spotify: {
-                        ...track.spotify,
-                        default_yt_video_id: forceVideoId,
-                     },
-                  }
-               }
-               return track
-            })
-            set({ tracks: updatedTracks })
-
-            // Update default video in database
-            vanillaTrpc.spotify.updateDefaultVideo.mutate({
-               spotifyTrackId: track.spotify.id,
-               youtubeVideoId: videoId,
-            })
-         }
-
          vanillaTrpc.discord.updatePresence.mutate(track)
 
          playerRef.loadVideoById(videoId)
@@ -123,6 +101,38 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
          console.error('❌ Play error:', error)
          toast.error('Failed to play video')
          set({ isPlaying: false })
+      }
+   },
+
+   updateDefaultVideo: ({ track, youtubeVideoId }) => {
+      if (!track.yt || !track.yt[0]) return console.warn('⚠️ No youtube video provided')
+      const { tracks } = get()
+      if (youtubeVideoId && track.yt.length > 1 && track.spotify?.id) {
+         // Update default video locally
+         // TODO not working, as table not subscribed to store changes
+         console.log('Updating default video locally and in DB...')
+         const currentInListId = tracks.findIndex((t) => t.spotify?.id === track.spotify?.id)
+         const updatedTracks = tracks.map((track, id) => {
+            if (id === currentInListId && track.spotify) {
+               return {
+                  ...track,
+                  spotify: {
+                     ...track.spotify,
+                     default_yt_video_id: youtubeVideoId,
+                  },
+               }
+            }
+            return track
+         })
+         set({ tracks: updatedTracks })
+
+         // Update default video in database
+         vanillaTrpc.spotify.updateDefaultVideo.mutate({
+            spotifyTrackId: track.spotify.id,
+            youtubeVideoId,
+         })
+
+         toast.success('Default YouTube video updated')
       }
    },
 

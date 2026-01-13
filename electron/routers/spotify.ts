@@ -161,7 +161,9 @@ export const spotifyRouter = router({
       return playlist
    }),
 
+   // TODO deletePlaylist cascade  delete tracks only in this playlist
    deletePlaylist: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-      await prisma.spotifyPlaylist.deleteMany({ where: { id: input } })
+      await prisma.spotifyTrack.deleteMany({ where: { playlists: { some: { id: input } } } })
+      await prisma.spotifyPlaylist.delete({ where: { id: input } })
    }),
 })

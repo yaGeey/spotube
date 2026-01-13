@@ -41,13 +41,18 @@ const idleStatus = {
    type: 2,
 }
 
+let currentStartTime: number | null = null
+
 export const discordRpcRouter = router({
    updatePresence: publicProcedure.input(z.object({}).loose()).mutation(({ input }) => {
-      const { spotify, yt } = input as TrackCombined
+      const { spotify, yt, currentTime = 0 } = input as TrackCombined & { currentTime?: number }
       const currentVideo = yt?.find((v) => v.id === spotify?.default_yt_video_id) || yt?.[0]
       const spotifyTrack = spotify?.full_response.track
 
       const duration = currentVideo?.duration_ms ?? spotifyTrack?.duration_ms
+      if (!currentStartTime) currentStartTime = Date.now()
+
+      const release_date = spotifyTrack?.album.release_date?.split('-')[0]
       setActivity({
          details: spotify?.title ?? currentVideo?.title,
          state: spotify?.artists ?? currentVideo?.author,
@@ -55,12 +60,18 @@ export const discordRpcRouter = router({
             timestamps: {
                start: Date.now(),
                end: Date.now() + duration,
+               // TODO
+               // start: currentStartTime - currentTime * 1000, // Враховуємо поточну позицію
+               // end: currentStartTime + duration - currentTime * 1000,
             },
          }),
          assets: spotify
             ? {
                  large_image: spotifyTrack?.album.images[0].url,
-                 large_text: `${spotifyTrack?.album.name} (${spotifyTrack?.album.release_date?.split('-')[0]})`,
+                 large_text:
+                    spotifyTrack?.album.name === spotify?.title
+                       ? `(${release_date})`
+                       : `${spotifyTrack?.album.name} (${release_date})`,
                  large_url: spotifyTrack?.album.external_urls.spotify,
                  small_image: 'spotify',
                  small_text: 'Listening from Spotify',
@@ -80,5 +91,8 @@ export const discordRpcRouter = router({
    }),
 
    //
-   clear: publicProcedure.mutation(() => setActivity(idleStatus)),
+   clear: publicProcedure.mutation(() => {
+      currentStartTime = null
+      setActivity(idleStatus)
+   }),
 })

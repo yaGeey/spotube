@@ -2,10 +2,19 @@ import { useEffect, useState } from 'react'
 import { useAudioStore } from '../hooks/useAudioStore'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faVolumeHigh, faVolumeLow, faVolumeOff, faVolumeXmark } from '@fortawesome/free-solid-svg-icons'
+import Progress from './Progress'
 
 export default function PlayerVolume() {
    const { playerRef } = useAudioStore()
-   const [volume, setVolume] = useState<number>(playerRef?.getVolume() ?? 0)
+
+   const [isMuted, setIsMuted] = useState<boolean>(() => {
+      const savedIsMuted = localStorage.getItem('player-muted')
+      return savedIsMuted ? savedIsMuted === '1' : false
+   })
+   const [volume, setVolume] = useState<number>(() => {
+      const savedVolume = localStorage.getItem('player-volume')
+      return savedVolume ? parseInt(savedVolume, 10) : playerRef?.getVolume() ?? 0
+   })
 
    useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -19,7 +28,6 @@ export default function PlayerVolume() {
             vol = Math.max(playerRef.getVolume() - 5, 0)
          }
          if (vol !== undefined) {
-            playerRef.setVolume(vol)
             setVolume(vol)
          }
       }
@@ -28,23 +36,32 @@ export default function PlayerVolume() {
       return () => document.removeEventListener('keydown', handleKeyDown)
    }, [playerRef])
 
+   // subscriber for volume
+   useEffect(() => {
+      localStorage.setItem('player-volume', volume.toString())
+      if (playerRef) playerRef.setVolume(volume)
+   }, [volume, playerRef])
+
+   // subscriber for mute
+   useEffect(() => {
+      localStorage.setItem('player-muted', isMuted ? '1' : '0')
+      if (playerRef) {
+         if (isMuted) playerRef.mute()
+         else playerRef.unMute()
+      }
+   }, [isMuted, playerRef])
+
    return (
       <>
-         <button className="text-neutral-400 hover:text-white transition-colors size-4"></button>
          <div className="flex items-center gap-2 w-24 group">
             <button
                className="w-5 h-5 text-neutral-400 group-hover:text-white transition-colors"
                onClick={() => {
                   if (!playerRef) return
-                  playerRef.isMuted() ? playerRef.unMute() : playerRef.mute()
-               }}
-               onAuxClick={(e) => {
-                  e.preventDefault()
-                  if (!playerRef) return
-                  playerRef.isMuted() ? playerRef.unMute() : playerRef.mute()
+                  setIsMuted((p) => !p)
                }}
             >
-               {playerRef.isMuted ? (
+               {isMuted ? (
                   <FontAwesomeIcon icon={faVolumeXmark} />
                ) : !volume ? (
                   <FontAwesomeIcon icon={faVolumeOff} />
@@ -54,31 +71,18 @@ export default function PlayerVolume() {
                   <FontAwesomeIcon icon={faVolumeHigh} />
                )}
             </button>
-            <div
-               className="h-1 bg-neutral-600 rounded-full w-full relative cursor-pointer"
-               onWheel={(e) => {
-                  if (!playerRef) return
-                  let newVolume
-                  if (e.deltaY < 0) newVolume = Math.min(volume + 5, 100)
-                  else newVolume = Math.max(volume - 5, 0)
-                  playerRef.setVolume(newVolume)
-                  setVolume(newVolume)
+            <Progress
+               value={volume}
+               setValue={setVolume}
+               step={5}
+               props={{
+                  onAuxClick: (e) => {
+                     e.preventDefault()
+                     if (!playerRef) return
+                     setIsMuted((p) => !p)
+                  },
                }}
-               onClick={(e) => {
-                  if (!playerRef) return
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const clickX = e.clientX - rect.left
-                  const percentage = clickX / rect.width
-                  const newVolume = Math.round(percentage * 100)
-                  playerRef.setVolume(newVolume)
-                  setVolume(newVolume)
-               }}
-            >
-               <div
-                  className="absolute top-0 left-0 h-full bg-white rounded-full group-hover:bg-green-500 transition-colors"
-                  style={{ width: `${volume}%` }}
-               ></div>
-            </div>
+            />
          </div>
       </>
    )

@@ -1,17 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { formatDuration } from '../utils/time'
 import { useAudioStore } from '../hooks/useAudioStore'
+import Progress from './Progress'
 
 export default function PlayerTrackProgress() {
    const { current, playerRef, isPlaying } = useAudioStore()
    const [time, setTime] = useState(0) // in seconds
+   const [duration, setDuration] = useState(0) // in seconds
    const [progress, setProgress] = useState(0)
    const STEP = 10
 
    const updateProgress = useCallback(() => {
       const curTime = playerRef.getCurrentTime()
+      const dur = playerRef.getDuration()
       setTime(curTime)
-      setProgress((curTime / playerRef.getDuration()) * 100)
+      setDuration(dur)
+      setProgress((curTime / dur) * 100)
    }, [playerRef])
 
    useEffect(() => {
@@ -19,7 +23,19 @@ export default function PlayerTrackProgress() {
          if (isPlaying && playerRef) updateProgress()
       }, 1000)
       return () => clearInterval(interval)
-   }, [current, isPlaying, playerRef])
+   }, [current, isPlaying, playerRef, updateProgress])
+
+   const handleProgressChange = useCallback(
+      (newProgress: number) => {
+         if (!playerRef) return
+         const dur = playerRef.getDuration()
+         const newTime = (newProgress / 100) * dur
+         playerRef.seekTo(newTime)
+         setProgress(newProgress)
+         setTime(newTime)
+      },
+      [playerRef]
+   )
 
    const rewind = useCallback(
       (amount: number) => {
@@ -48,34 +64,10 @@ export default function PlayerTrackProgress() {
    }, [rewind])
 
    return (
-      <div className="w-full flex items-center gap-2 text-xs text-neutral-400 font-medium font-mono">
+      <div className="w-full flex items-center gap-2 text-xs group text-neutral-400 font-medium font-mono">
          <span>{formatDuration(time)}</span>
-         <div
-            className="h-1 bg-neutral-600 rounded-full w-full relative group cursor-pointer"
-            onWheel={(e) => {
-               if (!playerRef) return
-               rewind(Math.sign(e.deltaY) * -STEP)
-            }}
-            onClick={(e) => {
-               if (!playerRef) return
-               const rect = e.currentTarget.getBoundingClientRect()
-               const clickX = e.clientX - rect.left
-               const percentage = clickX / rect.width
-               const newTime = percentage * playerRef.getDuration()
-               playerRef.seekTo(newTime)
-               updateProgress()
-            }}
-         >
-            <div
-               className="absolute top-0 left-0 h-full bg-white rounded-full group-hover:bg-green-500"
-               style={{ width: `${progress}%` }}
-            ></div>
-            <div
-               className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100"
-               style={{ left: `${progress}%` }}
-            ></div>
-         </div>
-         <span>{formatDuration(playerRef.getDuration())}</span>
+         <Progress value={progress} setValue={handleProgressChange} step={10} setOnRelease={true} />
+         <span>{formatDuration(duration)}</span>
       </div>
    )
 }

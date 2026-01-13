@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useAudioStore } from '../hooks/useAudioStore'
 import PlayerTrackProgress from './PlayerTrackProgress'
 import PlayerVolume from './PlayerVolume'
@@ -7,8 +7,7 @@ import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, S
 import { twMerge } from 'tailwind-merge'
 
 export default function Player() {
-   const { current, toggle, playerRef, isPlaying, next, back } = useAudioStore()
-   const [shuffle, setShuffle] = useState(false)
+   const { current, toggle, playerRef, isPlaying, next, back, isRandom, setIsRandom } = useAudioStore()
 
    useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -23,7 +22,7 @@ export default function Player() {
          }
          if (e.code === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault()
-            next(true)
+            next()
          }
       }
 
@@ -31,12 +30,26 @@ export default function Player() {
       return () => document.removeEventListener('keydown', handleKeyDown)
    }, [toggle, next, back, playerRef])
 
-   if (!current || !playerRef) return null
-   const { yt, spotify } = current
+   // block page scrolling when hovering over the player
+   const containerRef = useRef<HTMLDivElement>(null)
+   useEffect(() => {
+      const element = containerRef.current
+      if (!element) return
 
-   const image = spotify?.full_response.track?.album.images[0].url ?? current.yt?.[0].thumbnail_url
+      const handleWheel = (e: WheelEvent) => e.preventDefault()
+      element.addEventListener('wheel', handleWheel, { passive: false })
+      return () => element.removeEventListener('wheel', handleWheel)
+   }, [current, playerRef])
+
+   if (!current || !playerRef) return null
+
+   const { yt, spotify } = current
+   const image = spotify?.full_response.track?.album.images[0].url ?? yt?.[0].thumbnail_url
    return (
-      <div className="fixed bottom-0 left-0 right-0 bg-main backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between text-white h-[90px] z-50">
+      <div
+         className="fixed bottom-0 left-0 right-0 bg-main backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between text-white h-[90px] z-50"
+         ref={containerRef}
+      >
          {/* Left: Track Info */}
          <div className="flex items-center w-[30%] min-w-[180px]">
             {/* Album Art */}
@@ -63,9 +76,9 @@ export default function Player() {
          <div className="flex flex-col items-center max-w-[40%] w-full">
             <div className="flex items-center gap-6 mb-2">
                <button
-                  className={twMerge('text-text-subtle hover:text-text transition-colors', shuffle && 'text-lighter')}
+                  className={twMerge('text-text-subtle hover:text-text transition-colors', isRandom && 'text-lighter')}
                   title="Shuffle"
-                  onClick={() => setShuffle((s) => !s)}
+                  onClick={() => setIsRandom(!isRandom)}
                >
                   <ShuffleIcon className="w-4 h-4" />
                </button>
@@ -82,7 +95,7 @@ export default function Player() {
                      <PlayIcon className="w-5 h-5 fill-current translate-x-0.5" />
                   )}
                </button>
-               <button className="text-text-subtle hover:text-text transition-colors" title="Next" onClick={() => next(shuffle)}>
+               <button className="text-text-subtle hover:text-text transition-colors" title="Next" onClick={() => next()}>
                   <SkipForwardIcon className="w-5 h-5" />
                </button>
                <button className="text-text-subtle hover:text-text transition-colors" title="Repeat">

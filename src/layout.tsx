@@ -2,11 +2,12 @@ import { NavLink, Outlet } from 'react-router-dom'
 import Player from './components/Player'
 import Header from './components/Header'
 import Playlists from './components/nav/Playlists'
+import { ToastContainer } from 'react-toastify'
 
 export default function Layout() {
    return (
       <div className="pb-[90px] bg-main/95 text-text text-sm">
-         <Header />
+         {/* <Header /> */}
          <nav className="flex gap-2 w-full bg-pink-200/40 px-4">
             {/* end - exact path */}
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
@@ -18,12 +19,16 @@ export default function Layout() {
             <NavLink to="/test" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
                Test
             </NavLink>
+            <NavLink to="/auth-genius" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
+               AuthGenius
+            </NavLink>
          </nav>
          <div className="flex">
             <Playlists />
             <Outlet />
          </div>
          <Player />
+         <ToastContainer position="top-right" newestOnTop pauseOnHover />
       </div>
    )
 }

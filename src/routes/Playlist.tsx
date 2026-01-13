@@ -80,6 +80,10 @@ export default function Playlist() {
    // }, [current])
    const [selectedPanel, setSelectedPanel] = useState<'info' | 'yt'>('yt')
 
+   const geniusMutation = trpc.genius.scrapLyrics.useMutation({
+      onSuccess: (data) => console.log('Genius data:', data),
+      onError: (error) => console.error('Error:', error),
+   })
    return (
       <div className="grid grid-cols-[minmax(500px,_1fr)_320px] w-full">
          <div className="p-3">
@@ -95,6 +99,9 @@ export default function Playlist() {
                   }}
                >
                   fullscreen
+               </Button>
+               <Button onClick={() => geniusMutation.mutate({ ytId: current?.yt?.[0].id! })}>
+                  fetch genius data for current
                </Button>
             </div>
             <div className={twMerge('aspect-video block w-full', (!isPlayerVisible || !current) && 'hidden')}>

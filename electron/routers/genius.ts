@@ -2,6 +2,9 @@ import { BrowserWindow } from 'electron'
 import { publicProcedure, router } from '../trpc'
 import { store, win } from '../main'
 import Genius from 'genius-lyrics'
+import prisma from '../lib/prisma'
+import z from 'zod'
+import { omitFunctions, safeSerialize } from '@/utils/objects'
 // Implicit Grant Flow
 // https://REDIRECT_URI/#access_token=ACCESS_TOKEN&state=STATE
 const client = new Genius.Client()
@@ -57,10 +60,22 @@ const geniusRouter = router({
       })
    }),
 
-   scrapLyrics: publicProcedure.mutation(async () => {
-      const resSearch = await client.songs.search('Foreground Eclipse From Under Cover')
-      const lyrics = await resSearch[0].lyrics()
-   })
+   // TODO rewrite!!!!!!! only for 1 video in list
+   scrapLyrics: publicProcedure.input(z.object({ ytId: z.string() })).mutation(async ({ input }) => {
+      const songs = await client.songs.search('Foreground Eclipse From Under Cover')
+      const lyrics = await songs[0].lyrics()
+      const prismaRes = await prisma.genius.create({
+         data: {
+            lyrics: lyrics,
+            full_response: safeSerialize(songs[0]),
+         },
+      })
+      await prisma.youtubeVideo.update({
+         where: { id: input.ytId },
+         data: { geniusId: prismaRes.id },
+      })
+      return prismaRes
+   }),
 })
 
 export default geniusRouter

@@ -7,6 +7,7 @@
       "dev": "vite",
       "build": "tsc && vite build && electron-builder",
       "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+      "lint.err": "eslint . --ext ts,tsx --quiet",
       "preview": "vite preview",
       "rebuild": "electron-rebuild -f -w better-sqlite3",
       "postinstall": "electron-builder install-app-deps"

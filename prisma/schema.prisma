@@ -46,6 +46,10 @@ model YoutubeVideo {
   lastFm           LastFM?           @relation(fields: [lastfm_id], references: [id])
   lastfm_id        Int?
   youtubePlaylists YoutubePlaylist[]
+
+  // TODO rewrite
+  genius   Genius? @relation(fields: [geniusId], references: [id])
+  geniusId Int?
 }
 
 model LastFM {
@@ -60,23 +64,23 @@ model LastFM {
 }
 
 model YoutubePlaylist {
-  id              String         @id
-  title           String
-  owner           String
-  full_response   Json // TODO do I need this?
-  content         YoutubeVideo[]
+  id            String         @id
+  title         String
+  owner         String
+  full_response Json // TODO do I need this?
+  content       YoutubeVideo[]
 
   // localPlaylist   LocalPlaylist[]
 }
 
 model SpotifyPlaylist {
-  id             String          @id
-  snapshot_id    String
-  title          String
-  owner          String
-  thumbnail_url  String?
-  url            String
-  content        SpotifyTrack[]
+  id            String         @id
+  snapshot_id   String
+  title         String
+  owner         String
+  thumbnail_url String?
+  url           String
+  content       SpotifyTrack[]
 
   // localPlaylists LocalPlaylist[]
 }
@@ -99,10 +103,9 @@ model AiData {
 // }
 
 model Genius {
-  id      Int    @id @default(autoincrement())
-  title    String
-  artist   String
-  /// [GeniusData]
-  response Json
+  id            Int            @id @default(autoincrement())
+  lyrics        String
+  /// [GeniusSong]
+  full_response Json
+  youtubeVideos YoutubeVideo[]
 }
-

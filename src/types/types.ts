@@ -3,6 +3,7 @@ import type { VideoCompact } from 'youtubei'
 import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
 import { SpotifyTrack } from '@/generated/prisma/client'
 import { YtPayload } from '@/electron/routers/yt'
+import type Genius from 'genius-lyrics'
 
 declare global {
    namespace PrismaJson {
@@ -21,6 +22,8 @@ declare global {
 
       // Spotify
       export type SpotifyPlaylistItem = SpotifyApi.PlaylistTrackObject
+
+      export type GeniusSong = Genius.Song
    }
 }
 

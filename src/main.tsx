@@ -10,7 +10,7 @@ import { trpc } from './utils/trpc.ts'
 import { ipcLink } from 'electron-trpc/renderer'
 import superjson from 'superjson'
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
    defaultOptions: {
       queries: {
          staleTime: Infinity,
@@ -27,6 +27,14 @@ const trpcClient = trpc.createClient({
    transformer: superjson,
 })
 
+// Load react-scan in development
+if (import.meta.env.DEV) {
+   const script = document.createElement('script')
+   script.src = 'https://unpkg.com/react-scan/dist/auto.global.js'
+   script.async = true
+   document.head.appendChild(script)
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
    <React.StrictMode>
       <HashRouter>
@@ -37,7 +45,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             </QueryClientProvider>
          </trpc.Provider>
       </HashRouter>
-   </React.StrictMode>
+   </React.StrictMode>,
 )
 
 // Use contextBridge

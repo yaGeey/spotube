@@ -1,13 +1,18 @@
 import { router } from './trpc'
-import { spotifyRouter } from './routers/spotify'
-import { ytRouter } from './routers/yt'
 import { discordRpcRouter } from './routers/discord-rpc'
-import geniusRouter from './routers/genius'
+import { spotifyRouter } from './routers/spotify'
+import { youtubeRouter } from './routers/yt'
+import { playlistsRouter } from './routers/playlists'
+import { tracksRouter } from './routers/tracks'
+import { lastFMRouter } from './routers/lastfm'
 
 export const appRouter = router({
-   spotify: spotifyRouter,
-   yt: ytRouter,
+   tracks: tracksRouter,
+   playlists: playlistsRouter,
+
    discord: discordRpcRouter,
-   genius: geniusRouter,
+   spotify: spotifyRouter,
+   yt: youtubeRouter,
+   lastfm: lastFMRouter,
 })
 export type AppRouter = typeof appRouter

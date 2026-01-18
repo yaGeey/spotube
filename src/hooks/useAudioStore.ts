@@ -1,25 +1,33 @@
 import { create } from 'zustand'
 import { toast } from 'react-toastify'
-import { TrackCombined } from '../types/types'
 import { trpc, vanillaTrpc } from '../utils/trpc'
+import { TrackWithRelations } from '@/electron/lib/prisma'
 
 type AudioStore = {
    playerRef: any
-   current: TrackCombined | null
-   play: ({ track, forceVideoId, skipHistory }: { track: TrackCombined; forceVideoId?: string; skipHistory?: boolean }) => void
-   updateDefaultVideo: ({ track, youtubeVideoId }: { track: TrackCombined; youtubeVideoId: string }) => void
+   current: TrackWithRelations | null
+   play: ({
+      track,
+      forceVideoId,
+      skipHistory,
+   }: {
+      track: TrackWithRelations
+      forceVideoId?: string
+      skipHistory?: boolean
+   }) => void
+   updateDefaultVideo: ({ track, youtubeVideoId }: { track: TrackWithRelations; youtubeVideoId: string }) => void
    stop: () => void
    setPlayerRef: (ref: any) => void
    toggle: () => void
    isPlaying: boolean
    setIsPlaying: (isPlaying: boolean) => void
-   tracks: TrackCombined[]
-   setTracks: (tracks: TrackCombined[]) => void
-   history: TrackCombined[]
+   tracks: TrackWithRelations[]
+   setTracks: (tracks: TrackWithRelations[]) => void
+   history: TrackWithRelations[]
    currentIndexAtHistory: number
    back: () => void
    next: () => void
-   addToHistory: (track: TrackCombined) => void
+   addToHistory: (track: TrackWithRelations) => void
    clearHistory: () => void
    isRandom: boolean
    setIsRandom: (isRandom: boolean) => void
@@ -64,7 +72,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       }
 
       // Ми в кінці історії, треба обрати НОВИЙ трек
-      let newTrack: TrackCombined | null = null
+      let newTrack: TrackWithRelations | null = null
       const currentInListId = tracks.findIndex((t) => t.spotify?.id === current?.spotify?.id)
       if (isRandom) {
          // TODO Тут можна додати перевірку, щоб рандом не видав той самий трек, що грає зараз
@@ -87,7 +95,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       if (!playerRef) return console.warn('⚠️ Player not ready')
       if (!track.yt || !track.yt[0]) return console.warn('⚠️ No youtube video provided')
 
-      const videoId = forceVideoId ?? track.spotify?.default_yt_video_id ?? track.yt?.[0].id
+      const videoId = forceVideoId ?? track.defaultYtVideoId ?? track.yt?.[0].id
       try {
          vanillaTrpc.discord.updatePresence.mutate(track)
 
@@ -127,8 +135,8 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
          set({ tracks: updatedTracks })
 
          // Update default video in database
-         vanillaTrpc.spotify.updateDefaultVideo.mutate({
-            spotifyTrackId: track.spotify.id,
+         vanillaTrpc.tracks.updateDefaultVideo.mutate({
+            trackId: track.id,
             youtubeVideoId,
          })
 

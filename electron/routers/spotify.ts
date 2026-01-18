@@ -1,169 +1,205 @@
-import { z } from 'zod'
-import { router, publicProcedure } from '../trpc'
-import prisma from '../lib/prisma'
-import { createAndSyncPlaylist, getSpotifyToken } from '../lib/spotify'
+import z from 'zod'
+import { publicProcedure, router } from '../trpc'
+import { getSpotifyToken } from '../lib/spotify'
 import api from '../lib/axios'
+import prisma, { playlistWithDeepRelations, PlaylistWithItems } from '../lib/prisma'
 import chalk from 'chalk'
-import { BrowserWindow } from 'electron'
-import { store, win } from '../main'
-import { SpotifyPlaylist, SpotifyTrack } from '@/generated/prisma/client'
-
-export type SpotifyPlaylistResponse = SpotifyPlaylist & { items: SpotifyTrack[] }
+import { PlaylistItem, Prisma } from '@/generated/prisma/client'
+import { chunkArray } from '@/utils/arrays'
 
 export const spotifyRouter = router({
-   updateDefaultVideo: publicProcedure
-      .input(z.object({ spotifyTrackId: z.string(), youtubeVideoId: z.string().nullable() }))
-      .mutation(async ({ input }) => {
-         const { spotifyTrackId, youtubeVideoId } = input
-         await prisma.spotifyTrack.update({
-            where: { id: spotifyTrackId },
-            data: {
-               default_yt_video_id: youtubeVideoId,
+   upsertPlaylistWithTracks: publicProcedure
+      .input(z.string())
+      .mutation(async ({ input: playlistId }): Promise<PlaylistWithItems> => {
+         const accessToken = await getSpotifyToken().then((res) => res?.access_token)
+         if (!accessToken) throw new Error('No Spotify access token available')
+
+         // fetch playlist with metadata
+         const { data: playlistRes } = await api.get<SpotifyApi.SinglePlaylistResponse>(
+            `https://api.spotify.com/v1/playlists/${playlistId}`,
+            {
+               headers: { Authorization: `Bearer ${accessToken}` },
+            },
+         )
+
+         // check for existing playlist and snapshot
+         const existingPlaylist = await prisma.playlist.findFirst({
+            where: {
+               spotifyMetadataId: playlistRes.id,
+            },
+            include: playlistWithDeepRelations,
+         })
+         if (existingPlaylist?.spotifyMetadata?.snapshotId === playlistRes.snapshot_id) {
+            return existingPlaylist
+         }
+
+         // upsert playlist
+         const prismaPlaylist = await prisma.playlist.upsert({
+            where: {
+               spotifyMetadataId: playlistRes.id,
+            },
+            update: {
+               title: playlistRes.name,
+               description: playlistRes.description,
+               thumbnailUrl: playlistRes.images[0]?.url,
+               spotifyMetadata: {
+                  update: {
+                     snapshotId: playlistRes.snapshot_id,
+                     fullResponse: playlistRes,
+                  },
+               },
+            },
+            create: {
+               title: playlistRes.name,
+               description: playlistRes.description,
+               thumbnailUrl: playlistRes.images[0]?.url,
+               origin: 'SPOTIFY',
+               url: playlistRes.external_urls.spotify,
+               spotifyMetadata: {
+                  create: {
+                     id: playlistRes.id,
+                     fullResponse: playlistRes,
+                     snapshotId: playlistRes.snapshot_id,
+                  },
+               },
             },
          })
+         console.log(chalk.blue(`Upserted Spotify playlist ${playlistRes.name} (${playlistRes.id})`))
+
+         // fetch tracks with pagination
+         const tracks = [...playlistRes.tracks.items]
+         let pagingObject = playlistRes.tracks
+         while (pagingObject.next) {
+            const res = await api.get(pagingObject.next, {
+               headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            pagingObject = res.data
+            tracks.push(...pagingObject.items)
+         }
+         console.log(chalk.blue(`Fetched ${tracks.length} tracks. ${tracks.filter((t) => t.track?.id).length} available.`))
+
+         // check for existing master tracks to avoid duplicates
+         const uniqueSpotifyIds = new Set(
+            tracks.map((t) => t.track?.id).filter((id): id is string => typeof id === 'string' && id.length > 0),
+         )
+
+         // batching to avoid too many parameters error
+         const chunked = chunkArray(Array.from(uniqueSpotifyIds), 500)
+         const existingMasterTracks: { id: number; spotify: { id: string } | null }[] = []
+         for (const chunk of chunked) {
+            const result = await prisma.masterTrack.findMany({
+               where: {
+                  spotify: {
+                     id: { in: chunk },
+                  },
+               },
+               select: { id: true, spotify: { select: { id: true } } },
+            })
+            existingMasterTracks.push(...result)
+         }
+         // spotify track id -> master track
+         const tracksMap = new Map(existingMasterTracks.map((t) => [t.spotify!.id, t.id]))
+
+         // create other master track
+         for (const item of tracks) {
+            const id = item.track?.id
+            if (id && item.track && !tracksMap.has(id)) {
+               const newTrack = await prisma.masterTrack.create({
+                  data: {
+                     title: item.track.name,
+                     artists: item.track.artists.map((a) => a.name).join(', '),
+                     thumbnailUrl: item.track.album.images[0]?.url,
+                     spotify: {
+                        //TODO connect because spotifyTrack can already exist as orphaned record (fix this)
+                        connectOrCreate: {
+                           where: { id },
+                           create: {
+                              id,
+                              title: item.track.name,
+                              fullResponse: item.track,
+                           },
+                        },
+                     },
+                  },
+               })
+               tracksMap.set(id, newTrack.id)
+            }
+         }
+
+         await prisma.$transaction([
+            // clear existing playlist items (spotify playlist containt addet_at, it's not ours)
+            prisma.playlistItem.deleteMany({
+               where: { playlistId: prismaPlaylist.id },
+            }),
+
+            // create playlist items
+            prisma.playlistItem.createMany({
+               data: tracks
+                  .map((item, index) => {
+                     const mTrackId = tracksMap.get(item.track?.id || '')
+                     if (!mTrackId) return null
+                     return {
+                        playlistId: prismaPlaylist.id,
+                        addedAt: item.added_at ? new Date(item.added_at) : new Date(),
+                        trackId: mTrackId,
+                        position: index,
+                     } satisfies Prisma.PlaylistItemCreateManyInput
+                  })
+                  .filter((t) => t !== null),
+            }),
+         ])
+
+         // fetch and return the complete playlist with all relations
+         const completePlaylist = await prisma.playlist.findUniqueOrThrow({
+            where: { id: prismaPlaylist.id },
+            include: playlistWithDeepRelations,
+         })
+
+         return completePlaylist
       }),
 
-   //
-   getPlaylist: publicProcedure.input(z.string()).query(async ({ input }): Promise<SpotifyPlaylistResponse> => {
-      const { accessToken, playlist, playlistRes } = await createAndSyncPlaylist(input)
-
-      const cachedTracks = await prisma.spotifyTrack.findMany({
-         where: { playlists: { some: { id: playlist.id } } },
-      })
-
-      // Snapshot співпадає І треки існують у базі
-      // Якщо це новий плейлист, cachedTracks.length буде 0, і ми підемо фечити дані далі
-      if (playlist.snapshot_id === playlistRes.snapshot_id && cachedTracks.length === playlistRes.tracks.total) {
-         return {
-            ...playlist,
-            items: cachedTracks,
-         }
-      }
-      console.log(chalk.yellow('Spotify playlist snapshot changed or no cached tracks, fetching tracks...'))
-
-      // pagination
-      const tracks = [...playlistRes.tracks.items]
-      let pagingObject = playlistRes.tracks
-      while (pagingObject.next) {
-         const res = await api.get(pagingObject.next, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-         })
-         pagingObject = res.data
-         tracks.push(...pagingObject.items)
-      }
-
-      // insert tracks into db
-      const operations = tracks
-         .map((item) => {
-            if (!item.track || !item.track.id) return null // skip local or unavailable tracks
-            return prisma.spotifyTrack.upsert({
-               where: { id: item.track.id },
-               update: { playlists: { connect: { id: playlist!.id } } },
-               create: {
-                  id: item.track.id,
-                  title: item.track.name,
-                  full_response: item,
-                  artists: item.track.artists.map((artist) => artist.name).join(', '),
-                  playlists: { connect: { id: playlist!.id } },
-               },
-            })
-         })
-         .filter((op) => op !== null)
-      const tracksPrisma = await prisma.$transaction(operations)
-
-      // update snapshot id
-      const newPlaylist = await prisma.spotifyPlaylist.update({
-         where: { id: playlist.id },
-         data: { snapshot_id: playlistRes.snapshot_id },
-      })
-
-      return {
-         ...newPlaylist,
-         items: tracksPrisma,
-      }
-   }),
-
-   //
-   oauth: publicProcedure.mutation(async () => {
-      const scope = 'playlist-read-private'
-      const authUrl =
-         'https://accounts.spotify.com/authorize?' +
-         new URLSearchParams({
-            response_type: 'code',
-            client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID,
-            scope,
-            redirect_uri: import.meta.env.VITE_REDIRECT_URI,
-         }).toString()
-      // shell.openExternal(authUrl) // TODO: for production
-      // Створюємо модальне вікно для OAuth
-      const authWindow = new BrowserWindow({
-         width: 500,
-         height: 700,
-         parent: win!,
-         modal: true,
-         webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            partition: 'persist:spotify-auth', // Окрема сесія для auth щоб уникнути конфліктів кешу
+   getPlaylists: publicProcedure.query(async () => {
+      const playlists = await prisma.playlist.findMany({
+         where: {
+            origin: 'SPOTIFY',
          },
+         include: playlistWithDeepRelations,
+         orderBy: { createdAt: 'desc' },
       })
-      await authWindow.webContents.session.clearCache()
-
-      authWindow.loadURL(authUrl)
-      authWindow.webContents.on('will-redirect', async (event: unknown, url: string) => {
-         try {
-            if (url.startsWith(import.meta.env.VITE_REDIRECT_URI)) throw new Error('⏭️ Not our redirect URI, ignoring')
-
-            const code = new URL(url).searchParams.get('code')
-            if (!code) throw new Error('❌ No code in redirect URL')
-
-            const { data } = await api.post(
-               'https://accounts.spotify.com/api/token',
-               new URLSearchParams({
-                  grant_type: 'authorization_code',
-                  code: code,
-                  redirect_uri: import.meta.env.VITE_REDIRECT_URI!,
-               }).toString(),
-               {
-                  headers: {
-                     Authorization:
-                        'Basic ' +
-                        Buffer.from(
-                           `${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`
-                        ).toString('base64'),
-                     'Content-Type': 'application/x-www-form-urlencoded',
-                  },
-               }
-            )
-
-            // Зберігаємо токени в electron-store
-            store.set('spotify.access_token', data.access_token)
-            store.set('spotify.refresh_token', data.refresh_token)
-            store.set('spotify.expires_at', Date.now() + data.expires_in * 1000)
-
-            // Відправляємо токен на клієнт через webContents
-            win?.webContents.send('spotify-token', {
-               access_token: data.access_token,
-               expires_in: data.expires_in,
-            })
-
-            authWindow.close()
-         } catch (error) {
-            authWindow.close()
-         }
-      })
+      return playlists
    }),
 
-   getPlaylists: publicProcedure.query(() => prisma.spotifyPlaylist.findMany()),
+   deletePlaylist: publicProcedure.input(z.string()).mutation(async ({ input: spotifyId }) => {
+      return await prisma.$transaction(async (tx) => {
+         const playlist = await tx.playlist.findUniqueOrThrow({
+            where: { spotifyMetadataId: spotifyId },
+         })
+         console.log(chalk.blue(`Deleting Spotify playlist ${playlist.title} (${spotifyId})`))
 
-   createPlaylist: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-      const { playlist } = await createAndSyncPlaylist(input)
-      return playlist
-   }),
+         const tracksToDelete = await tx.masterTrack.findMany({
+            where: {
+               playlistItems: {
+                  every: { playlistId: playlist.id },
+                  some: { playlistId: playlist.id },
+               },
+            },
+         })
+         console.log(
+            chalk.blue(`Found ${tracksToDelete.length} tracks to delete (${tracksToDelete.map((t) => t.id).join(', ')})`),
+         )
 
-   // TODO deletePlaylist cascade  delete tracks only in this playlist
-   deletePlaylist: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-      await prisma.spotifyTrack.deleteMany({ where: { playlists: { some: { id: input } } } })
-      await prisma.spotifyPlaylist.delete({ where: { id: input } })
+         // delete SpotifyPlaylist -> Playlist -> PlaylistItem
+         await tx.spotifyPlaylist.deleteMany({
+            where: { id: spotifyId },
+         })
+
+         // delete MasterTracks
+         if (!tracksToDelete.length) return
+         await tx.masterTrack.deleteMany({
+            where: {
+               id: { in: tracksToDelete.map((t) => t.id) },
+            },
+         })
+      })
    }),
 })

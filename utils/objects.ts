@@ -12,8 +12,11 @@ export function omitFunctions<T extends object>(originalObject: T): T {
    return Object.fromEntries(filteredEntries) as T
 }
 
+export type Serialized<T extends object> = {
+   [K in keyof T]: T[K] extends (...args: any[]) => any ? never : T[K]
+}
 
-export function safeSerialize<T extends object>(obj: T): T {
+export function safeSerialize<T extends object>(obj: T): Serialized<T> {
    const seen = new WeakSet()
 
    return JSON.parse(

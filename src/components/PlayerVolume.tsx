@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAudioStore } from '../hooks/useAudioStore'
+import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faVolumeHigh, faVolumeLow, faVolumeOff, faVolumeXmark } from '@fortawesome/free-solid-svg-icons'
 import Progress from './Progress'

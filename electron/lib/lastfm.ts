@@ -1,5 +1,6 @@
 import { LastFM } from '@/generated/prisma/client'
 import api, { logPrettyError } from './axios'
+import prisma from './prisma'
 
 async function getLastFMTrack(artist: string, track: string): Promise<PrismaJson.LastFMTrack | null> {
    const { data } = await api.get('http://ws.audioscrobbler.com/2.0/', {
@@ -49,4 +50,32 @@ export async function getFullLastFMInfo(artist: string, track: string): Promise<
       logPrettyError(error)
       return { track: null, artist: null, album: null }
    }
+}
+
+export async function upsertLastFMEntry({
+   artist,
+   title,
+   masterId,
+}: {
+   artist: string
+   title: string
+   masterId: number
+}): Promise<LastFM | null> {
+   const trackData = await getLastFMTrack(artist, title)
+   const artistData = await getLastFMArtist(artist)
+   const albumData = trackData?.album?.title ? await getLastFMAlbum(artist, trackData.album.title) : null
+
+   let lastFm: null | LastFM = null
+   if (trackData || artistData || albumData)
+      lastFm = await prisma.lastFM.upsert({
+         where: { masterTrackId: masterId },
+         update: {},
+         create: {
+            track: trackData ?? undefined,
+            artist: artistData ?? undefined,
+            album: albumData ?? undefined,
+            masterTrack: { connect: { id: masterId } },
+         },
+      })
+   return lastFm
 }

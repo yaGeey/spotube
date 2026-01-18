@@ -17,7 +17,7 @@ export default function Layout() {
                Auth
             </NavLink>
             <NavLink to="/test" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
-               Test
+               Test youtubei
             </NavLink>
             <NavLink to="/auth-genius" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
                AuthGenius

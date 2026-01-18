@@ -1,0 +1,27 @@
+не, не працює. давай я напишу ідеальний аутпут, і ти на основі нього напишеш промпт. але використовуй загальне в промпті, не треба прямі приклади типу те що й так йому здається.
+
+
+
+Channel: Hibikit Title: IRIS OUT UKR cover by Snail || Chainsaw Man – The Movie: Reze Arc українською
+Channel: Re-read Title: Re-read - Duvet (Ukrainian version) Bôa cover
+Channel: Shiki Miyoshino / 美吉野しき (Requiem) Title:【Shiki Miyoshino / 美吉野しき】 Duvet - Bôa【Cover】
+Channel: 코고미 Title: Lucky☆Star - Motteke ! Sailor Fuku Bass cover
+Channel: The Burd. 🗸 Title: PH Меня Отчим Трахал А Потом Отдал В Рехаб 💥 | Лаки Баобаб кавер TikTok
+Channel: KitsuNetsu Title: Shikanoko Full OP - Shikaro Days | Ukr cover by (4 People Chorus) | Кавер українською
+Channel: yasai31 Title: いますぐ輪廻（Retry Now）/ Kasane Teto SV【SynthV cover】
+Channel: eatum-b Title: Kasane Teto & Hatsune Miku — Ти мені не даєш (Скрябін & Наталія Могилевська cover) 【Synthesizer V】
+Channel: Mai88 Title: [electro planet] EPM 2 -electro planet music 2 #08 - LAST GAME ft. Luschel
+Channel: Virkato Title: lapix - Cranberry City feat. Luschel (Extended Mix)
+Channel: Chest Man Title: SKINHATE - Квиток до раю
+
+output (ну типу json array, прост мені лінь писать як array, в дужках це пояснення для тебе щоб ти промпт написав)
+Hibikit, Snail -> IRIS OUT UKR cover (Hibikit - кавер група, Snail - учасник може(хз))
+Re-read, Bôa -> Duvet (Ukrainian version) (Re-read - виконавиця кавера, boa - оригіналу)
+Shiki Miyoshino, Bôa -> Duvet
+null -> PH Меня Отчим Трахал А Потом Отдал В Рехаб 💥 | Лаки Баобаб кавер TikTok (можеш сам почистить. null, бо це або невідомо, або мем, або просто відео)
+KitsuNetsu, 4 People Chorus -> Shikaro Days | Ukr cover
+yasai31, Kasane Teto -> いますぐ輪廻（Retry Now）(yasai31 автор каверу, де використав голосу Kasane Teto)
+eatum-b, Kasane Teto, Hatsune Miku, Скрябін, Наталия Могилевська -> Ти мені не даєш (Synthesizer V) (автор каверу, голос teto, автори оригіналу)
+Mai88, Luschel -> LAST GAME [electro planet EPM 2] (title це вже сводоба для аішки)
+lapix, Luschel -> Cranberry City (Extended Mix) (тут Virkato це просто людина яка залила відео на ютуб, автори це lapix and Luschel)
+SKINHATE -> Квиток до раю (те саме, Chest Man це людина яка просто залила відео на ютуб)

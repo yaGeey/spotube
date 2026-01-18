@@ -1,12 +1,12 @@
-import { TrackCombined } from '../types/types'
+import { TrackWithRelations } from '@/electron/lib/prisma'
 
-export default function TrackInfo({ data }: { data: TrackCombined }) {
-   const lastFm = data.yt?.[0].lastFm
-   if (!data.spotify || !lastFm) return null
+export default function TrackInfo({ data }: { data: TrackWithRelations }) {
+   const lastFm = data.lastFM
+   if (!lastFm) return null
    return (
       <div>
-         <h2 className="text-lg font-semibold">{data.spotify.title}</h2>
-         <p>{data.spotify.artists}</p>
+         <h2 className="text-lg font-semibold">{data.title}</h2>
+         <p>{data.artists}</p>
          {lastFm.track?.wiki?.content && (
             <div className="mt-4">
                <h3 className="text-md font-semibold mb-1">Track:</h3>

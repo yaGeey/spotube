@@ -2,7 +2,6 @@ import { youtube_v3 } from 'googleapis'
 import type { VideoCompact } from 'youtubei'
 import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
 import { SpotifyTrack } from '@/generated/prisma/client'
-import { YtPayload } from '@/electron/routers/yt'
 import type Genius from 'genius-lyrics'
 
 declare global {
@@ -21,23 +20,12 @@ declare global {
       export type YtFullResponse = VideoCompact
 
       // Spotify
-      export type SpotifyPlaylistItem = SpotifyApi.PlaylistTrackObject
+      // export type SpotifyPlaylistItem = SpotifyApi.PlaylistTrackObject
+      export type SpotifyPlaylistItem = SpotifyApi.TrackObjectFull
+      export type SpotifyPlaylist = SpotifyApi.SinglePlaylistResponse
 
       export type GeniusSong = Genius.Song
    }
-}
-
-export type TrackCombined = (
-   | {
-        spotify: SpotifyTrack
-        yt: YtPayload[] | null
-     }
-   | {
-        yt: [YtPayload]
-        spotify: null
-     }
-) & {
-   ai?: PrismaJson.AiMusicData | null
 }
 
 // export type Prettify<T> = {

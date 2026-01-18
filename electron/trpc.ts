@@ -11,19 +11,19 @@ const t = initTRPC.create({
 })
 
 // Middleware для логування
-const loggingMiddleware = t.middleware(async ({ path, type, next, input }) => {
+const loggingMiddleware = t.middleware(async ({ path, type, next }) => {
+   const isDiscord = path.startsWith('discord')
    const start = Date.now()
-   const inputLog = typeof input === 'object' ? JSON.stringify(input) : input
-   console.log(chalk.gray(`-> [${type}] ${path} - ${inputLog}`))
+   if (!isDiscord) console.log(chalk.gray(`-> [${type}] ${path}}`))
 
    const result = await next()
    const duration = Date.now() - start
 
    if (!result.ok) {
-      console.error(chalk.red(`X [${type}] ${path} - ${duration}ms`), result.error)
+      console.error(chalk.red.bold(`X [${type}] ${path} - ${duration}ms`))
       logPrettyError(result.error)
    } else {
-      console.log(chalk.green(`V [${type}] ${path} - ${duration}ms`))
+      if (!isDiscord) console.log(chalk.green(`V [${type}] ${path} - ${duration}ms`))
    }
 
    return result

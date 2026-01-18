@@ -12,100 +12,152 @@ datasource db {
   provider = "sqlite"
 }
 
+model MasterTrack {
+  id           Int     @id @default(autoincrement())
+  thumbnailUrl String?
+
+  title        String
+  titleLatin   String?
+  artists      String // Comma separated artist names
+  artistsLatin String?
+  script       String?
+
+  spotify SpotifyTrack?
+
+  defaultYtVideo   YoutubeVideo?  @relation("MasterTrackDefaultVideo", fields: [defaultYtVideoId], references: [id])
+  defaultYtVideoId String?
+  yt               YoutubeVideo[] @relation("MasterTrackVideos")
+  playlistItems    PlaylistItem[]
+
+  lastFM LastFM?
+  genius Genius?
+}
+
 model SpotifyTrack {
-  id            String @id
-  title         String
-  artists       String // TODO artists
-  /// [SpotifyPlaylistItem]
-  full_response Json
+  id           String @id // Spotify Track ID
+  title        String
+  /// [SpotifyPlaylistItem] 
+  fullResponse Json // TODO not playlistitem
 
-  default_yt_video    YoutubeVideo? @relation("DefaultVideo", fields: [default_yt_video_id], references: [id])
-  default_yt_video_id String?
+  masterTrackId Int?         @unique
+  masterTrack   MasterTrack? @relation(fields: [masterTrackId], references: [id], onDelete: Cascade)
 
-  youtube_videos YoutubeVideo[]    @relation("TrackVideos")
-  playlists      SpotifyPlaylist[]
+  @@index([masterTrackId])
 }
 
 model YoutubeVideo {
-  id         String   @id
-  updated_at DateTime @default(now()) @updatedAt
-
-  title         String
-  author        String
-  author_id     String
-  duration_ms   Int
-  views         Int
-  published_at  DateTime
-  thumbnail_url String
+  id           String   @id
+  title        String
+  author       String
+  // authorId     String // TODO on Author object
+  duration     Int // seconds
+  views        Int
+  publishedAt  DateTime
+  thumbnailUrl String
   ///// [YtFullResponse]
   //full_response Json
+  index        Int?
 
-  defaultFor       SpotifyTrack[]    @relation("DefaultVideo")
-  spotifyTrack     SpotifyTrack?     @relation("TrackVideos", fields: [spotify_id], references: [id])
-  spotify_id       String?
-  lastFm           LastFM?           @relation(fields: [lastfm_id], references: [id])
-  lastfm_id        Int?
-  youtubePlaylists YoutubePlaylist[]
-
-  // TODO rewrite
-  genius   Genius? @relation(fields: [geniusId], references: [id])
-  geniusId Int?
+  masterTracks     MasterTrack[] @relation("MasterTrackVideos")
+  usedAsDefaultFor MasterTrack[] @relation("MasterTrackDefaultVideo")
 }
 
-model LastFM {
-  id            Int            @id @default(autoincrement())
-  /// [LastFMTrack]
-  track         Json?
-  /// [LastFMAlbum]
-  album         Json?
-  /// [LastFMArtist]
-  artist        Json?
-  youtubeVideos YoutubeVideo[]
+model Playlist {
+  id           Int            @id @default(autoincrement())
+  title        String
+  description  String?
+  thumbnailUrl String?
+  origin       PlaylistOrigin
+  url          String?
+
+  playlistItems     PlaylistItem[]
+  inCombinedPlaylists CombinedPlaylist[]
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  spotifyMetadata   SpotifyPlaylist? @relation(fields: [spotifyMetadataId], references: [id], onDelete: Cascade)
+  youtubeMetadata   YoutubePlaylist? @relation(fields: [youtubeMetadataId], references: [id], onDelete: Cascade)
+  spotifyMetadataId String?          @unique
+  youtubeMetadataId String?          @unique
+}
+
+model PlaylistItem {
+  id       Int      @id @default(autoincrement())
+  position Int
+  addedAt  DateTime @default(now())
+
+  playlist   Playlist    @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  playlistId Int
+  track      MasterTrack @relation(fields: [trackId], references: [id])
+  trackId    Int
+
+  @@unique([playlistId, position])
+}
+
+model CombinedPlaylist {
+  id           Int     @id @default(autoincrement())
+  title        String
+  description  String?
+  thumbnailUrl String?
+
+  playlists Playlist[]
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+enum PlaylistOrigin {
+  YOUTUBE
+  SPOTIFY
+  LOCAL
 }
 
 model YoutubePlaylist {
-  id            String         @id
-  title         String
-  owner         String
-  full_response Json // TODO do I need this?
-  content       YoutubeVideo[]
-
-  // localPlaylist   LocalPlaylist[]
+  id           String     @id
+  fullResponse Json
+  playlists    Playlist[]
 }
 
 model SpotifyPlaylist {
-  id            String         @id
-  snapshot_id   String
-  title         String
-  owner         String
-  thumbnail_url String?
-  url           String
-  content       SpotifyTrack[]
-
-  // localPlaylists LocalPlaylist[]
+  id           String     @id
+  snapshotId   String
+  /// [SpotifyPlaylist]
+  fullResponse Json
+  playlists    Playlist[]
 }
 
-model AiData {
-  id       Int    @id @default(autoincrement())
-  title    String
-  artist   String
-  /// [AiMusicData]
-  response Json
+model LastFM {
+  id     Int   @id @default(autoincrement())
+  /// [LastFMTrack]
+  track  Json?
+  /// [LastFMAlbum]
+  album  Json?
+  /// [LastFMArtist]
+  artist Json?
+
+  masterTrackId Int         @unique
+  masterTrack   MasterTrack @relation(fields: [masterTrackId], references: [id])
 }
-
-// TODO
-// model LocalPlaylist {
-//   id Int @id @default(autoincrement())
-//   title            String
-
-//   spotifyPlaylists SpotifyPlaylist[]
-//   ytPlaylists      YoutubePlaylist[]
-// }
 
 model Genius {
-  id            Int            @id @default(autoincrement())
-  lyrics        String
-  /// [GeniusSong]
-  full_response Json
-  youtubeVideos YoutubeVideo[]
+  query        String @id
+  lyrics       String
+  fullResponse Json
+
+  masterTrackId Int         @unique
+  masterTrack   MasterTrack @relation(fields: [masterTrackId], references: [id])
+}
+
+model AI {
+  id        Int        @id @default(autoincrement())
+  model     String
+  type      PromptType
+  title     String
+  artists   String
+  createdAt DateTime   @default(now())
+}
+
+enum PromptType {
+  TITLE_ARTIST_PARSING
 }

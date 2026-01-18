@@ -3,6 +3,7 @@ import { TrackCombined } from '../../src/types/types'
 import chalk from 'chalk'
 import { z } from 'zod'
 import { createRequire } from 'node:module'
+import { TrackWithRelations } from '../lib/prisma'
 // https://discord.com/developers/docs/events/gateway-events#activity-object-activity-types
 // https://discord.com/developers/docs/topics/rpc#setactivity
 const require = createRequire(import.meta.url)
@@ -45,17 +46,18 @@ let currentStartTime: number | null = null
 
 export const discordRpcRouter = router({
    updatePresence: publicProcedure.input(z.object({}).loose()).mutation(({ input }) => {
-      const { spotify, yt, currentTime = 0 } = input as TrackCombined & { currentTime?: number }
-      const currentVideo = yt?.find((v) => v.id === spotify?.default_yt_video_id) || yt?.[0]
-      const spotifyTrack = spotify?.full_response.track
+      const t = input as TrackWithRelations & { currentTime?: number }
+      const { spotify, yt, currentTime = 0 } = t
+      const currentVideo = yt?.find((v) => v.id === t.defaultYtVideoId) || yt?.[0]
+      const spotifyTrack = spotify?.fullResponse
 
-      const duration = currentVideo?.duration_ms ?? spotifyTrack?.duration_ms
+      const duration = currentVideo?.duration ? currentVideo.duration * 1000 : spotifyTrack?.duration_ms
       if (!currentStartTime) currentStartTime = Date.now()
 
       const release_date = spotifyTrack?.album.release_date?.split('-')[0]
       setActivity({
-         details: spotify?.title ?? currentVideo?.title,
-         state: spotify?.artists ?? currentVideo?.author,
+         details: t.title,
+         state: t.artists,
          ...(duration && {
             timestamps: {
                start: Date.now(),
@@ -78,7 +80,7 @@ export const discordRpcRouter = router({
                  small_url: spotifyTrack?.external_urls.spotify,
               }
             : {
-                 large_image: currentVideo?.thumbnail_url.replace('http://', 'https://'),
+                 large_image: currentVideo?.thumbnailUrl.replace('http://', 'https://'),
                  large_text: currentVideo?.title,
                  large_url: `https://www.youtube.com/watch?v=${currentVideo?.id}`,
                  small_image: 'youtube',

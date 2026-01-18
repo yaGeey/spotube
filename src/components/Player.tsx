@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useAudioStore } from '../hooks/useAudioStore'
+import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import PlayerTrackProgress from './PlayerTrackProgress'
 import PlayerVolume from './PlayerVolume'
 // prettier-ignore
@@ -7,7 +7,7 @@ import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, S
 import { twMerge } from 'tailwind-merge'
 
 export default function Player() {
-   const { current, toggle, playerRef, isPlaying, next, back, isRandom, setIsRandom } = useAudioStore()
+   const { current, toggle, playerRef, isPlaying, next, back, randomType, setRandomType } = useAudioStore()
 
    useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,9 +42,6 @@ export default function Player() {
    }, [current, playerRef])
 
    if (!current || !playerRef) return null
-
-   const { yt, spotify } = current
-   const image = spotify?.full_response.track?.album.images[0].url ?? yt?.[0].thumbnail_url
    return (
       <div
          className="fixed bottom-0 left-0 right-0 bg-main backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between text-white h-[90px] z-50"
@@ -55,16 +52,18 @@ export default function Player() {
             {/* Album Art */}
             <div className="w-14 h-14 bg-neutral-800 mr-4 rounded-md flex-shrink-0 overflow-hidden shadow-lg relative group">
                <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800">
-                  {image ? <img src={image} width={56} height={56} alt="Album Art" /> : <MusicIcon className="w-6 h-6" />}
+                  {current.thumbnailUrl ? (
+                     <img src={current.thumbnailUrl} width={56} height={56} alt="Album Art" />
+                  ) : (
+                     <MusicIcon className="w-6 h-6" />
+                  )}
                </div>
             </div>
             {/* Track Title & Artists */}
             <div className="flex flex-col overflow-hidden">
-               <span className="text-sm font-medium hover:underline cursor-pointer truncate text-text">
-                  {spotify?.full_response.track?.name ?? current.yt?.[0].title}
-               </span>
+               <span className="text-sm font-medium hover:underline cursor-pointer truncate text-text">{current.title}</span>
                <span className="text-xs text-text-subtle hover:underline cursor-pointer truncate hover:text-text transition-colors">
-                  {spotify?.full_response.track?.artists.map((a) => a.name).join(', ') ?? current?.yt?.[0].author}
+                  {current.artists}
                </span>
             </div>
             <button className="ml-4 text-text-subtle hover:text-text transition-colors">
@@ -76,10 +75,11 @@ export default function Player() {
          <div className="flex flex-col items-center max-w-[40%] w-full">
             <div className="flex items-center gap-6 mb-2">
                <button
-                  className={twMerge('text-text-subtle hover:text-text transition-colors', isRandom && 'text-lighter')}
+                  className={twMerge('text-text-subtle hover:text-text transition-colors', randomType && 'text-lighter')}
                   title="Shuffle"
-                  onClick={() => setIsRandom(!isRandom)}
+                  onClick={() => setRandomType(randomType === 'true' ? null : 'true')}
                >
+                  <span className="text-[10px]">{randomType}</span>
                   <ShuffleIcon className="w-4 h-4" />
                </button>
                <button className="text-text-subtle hover:text-text transition-colors" title="Previous" onClick={back}>

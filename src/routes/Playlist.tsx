@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import YouTube from 'react-youtube'
-import { useAudioStore } from '../hooks/useAudioStore'
+import { useAudioStore } from '../audio_store/useAudioStore'
 import Button from '../components/Button'
-import { TrackCombined } from '../types/types'
 import { YtPayload, YtPayloadWithPlaylist } from '@/electron/ipc/yt'
 import YtVideoCards from '../components/YtVideoCards'
 import { trpc, vanillaTrpc } from '../utils/trpc'
@@ -11,6 +10,8 @@ import { useParams } from 'react-router-dom'
 import { twMerge } from 'tailwind-merge'
 import SwitchDiv from '../components/nav/SwitchDiv'
 import TrackInfo from '../components/TrackInfo'
+import { PlaylistWithItems } from '@/electron/lib/prisma'
+import { PlaylistItem } from '@/generated/prisma/client'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -18,72 +19,20 @@ const youtubePlaylistId = 'PLnYVx6d3vk609QDKMgBE52tDqP7fRi1pE'
 
 export default function Playlist() {
    const { id } = useParams()
-   const spotifyPlaylistId = id || ''
+   const playlistId = id ? parseInt(id) : 0
    const [isFullScreen, setIsFullScreen] = useState(false)
-
-   const { current, play, stop, setPlayerRef, setIsPlaying, tracks, setTracks, next } = useAudioStore()
-   const [isPlayerVisible, setIsPlayerVisible] = useState(true)
-   const playerRef = useRef<any>(null)
-
-   const spotifyPlaylistQuery = trpc.spotify.getPlaylist.useQuery(spotifyPlaylistId)
-   const ytPlaylistQuery = trpc.yt.getPlaylist.useQuery(youtubePlaylistId)
-   const ytBatchQuery = trpc.yt.batchFromSpotifyTracks.useQuery(
-      (spotifyPlaylistQuery.data?.items || []).map((item) => ({
-         query: {
-            artist: item.artists.split(',')[0],
-            title: item.title,
-         },
-         spotifyId: item.id,
-      })),
-      {
-         enabled: !!spotifyPlaylistQuery.data?.items?.length,
-      }
-   )
-
-   const allTracks = useMemo(() => {
-      if (!spotifyPlaylistQuery.data || !ytBatchQuery.data) return
-      // TODO spotify are from full_response, but yt from db fields - standardize this
-      const spotify = spotifyPlaylistQuery.data.items
-      const spotifyFiltered = spotify.filter((item) => item.full_response.track)
-
-      const ytfs = ytBatchQuery.data.filter((videos) => videos.length > 0)
-      const ytfsMap = new Map<string, YtPayload[]>()
-      ytfs.forEach((videos) => {
-         if (videos[0]?.spotify_id) {
-            ytfsMap.set(videos[0].spotify_id, videos as any)
-         }
-      })
-
-      const combined = spotifyFiltered.map((item) => ({
-         spotify: item,
-         yt: ytfsMap.get(item.id) || null,
-      })) satisfies TrackCombined[]
-      ytPlaylistQuery.data?.content.forEach((ytItem) => combined.push({ spotify: null as any, yt: [ytItem] }))
-
-      return combined
-   }, [spotifyPlaylistQuery.data, ytBatchQuery.data, ytPlaylistQuery.data])
-
-   // useEffect(() => {
-   //    if (playerRef.current)
-   //       if (isFullScreen) {
-   //          playerRef.current.setSize(1920, 1080)
-   //          playerRef.current.getIframe().requestFullscreen()
-   //       } else {
-   //          playerRef.current.setSize(560, 315)
-   //       }
-   // }, [isFullScreen])
-
-   // TODO
-   // useEffect(() => {
-   //    const interval = setInterval(() => vanillaTrpc.discord.updatePresence.mutate({...current, }), 15 * 1000)
-   //    return () => clearInterval(interval)
-   // }, [current])
    const [selectedPanel, setSelectedPanel] = useState<'info' | 'yt'>('yt')
 
-   const geniusMutation = trpc.genius.scrapLyrics.useMutation({
-      onSuccess: (data) => console.log('Genius data:', data),
-      onError: (error) => console.error('Error:', error),
-   })
+   const { current, play, stop, setPlayerRef, setIsPlaying, tracks, next, setPlaylistId, updateTrack } = useAudioStore()
+   const [isPlayerVisible, setIsPlayerVisible] = useState(true)
+   const playerRef = useRef<any>(null)
+   useEffect(() => setPlaylistId(playlistId), [setPlaylistId, playlistId])
+
+   const lastfmmutation = trpc.lastfm.upsertBatch.useMutation()
+
+   const playlist = trpc.playlists.getById.useQuery(playlistId)
+   const isYt = playlist.data?.origin === 'YOUTUBE'
+   if (!playlist.data) return <div>Loading...</div>
    return (
       <div className="grid grid-cols-[minmax(500px,_1fr)_320px] w-full">
          <div className="p-3">
@@ -100,14 +49,23 @@ export default function Playlist() {
                >
                   fullscreen
                </Button>
-               <Button onClick={() => geniusMutation.mutate({ ytId: current?.yt?.[0].id! })}>
-                  fetch genius data for current
+               <Button
+                  onClick={async () => {
+                     // TODO only for first artist
+                     const data = await lastfmmutation.mutateAsync(
+                        tracks.map((t) => ({ artist: t.artists.split(',')[0], title: t.title, masterId: t.id })),
+                     )
+                     if (data) alert('LastFM data upserted. Reload the page')
+                  }}
+               >
+                  LastFM
                </Button>
             </div>
             <div className={twMerge('aspect-video block w-full', (!isPlayerVisible || !current) && 'hidden')}>
                <YouTube
                   className="w-full h-full inset-0"
                   opts={{
+                     origin: window.location.origin,
                      height: '100%',
                      width: '100%',
                      // height: '1080',
@@ -118,6 +76,9 @@ export default function Playlist() {
                         playsinline: 1,
                         enablejsapi: 1,
                         controls: 0,
+                        rel: 0,
+                        iv_load_policy: 3,
+                        modestbranding: 1,
                      },
                   }}
                   onReady={(event) => {
@@ -153,12 +114,12 @@ export default function Playlist() {
                   onEnd={() => next()}
                />
             </div>
-            {allTracks && <TracksTable data={allTracks} />}
+            {playlist.data && <TracksTable data={playlist.data.playlistItems} playlistId={playlist.data.id} />}
          </div>
          <div>
-            <SwitchDiv value={selectedPanel} setValue={setSelectedPanel} />
+            {!isYt && <SwitchDiv value={selectedPanel} setValue={setSelectedPanel} />}
             {selectedPanel === 'yt' && <YtVideoCards />}
-            {selectedPanel === 'info' && current && <TrackInfo data={current} />}
+            {(selectedPanel === 'info' || isYt) && current && <TrackInfo data={current} />}
          </div>
       </div>
    )

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { formatDuration } from '../utils/time'
-import { useAudioStore } from '../hooks/useAudioStore'
+import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import Progress from './Progress'
 
 export default function PlayerTrackProgress() {

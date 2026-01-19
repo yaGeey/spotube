@@ -1,7 +1,4 @@
-import { youtube_v3 } from 'googleapis'
 import type { VideoCompact } from 'youtubei'
-import { SpotifyPlaylistResponse } from '@/electron/ipc/spotify'
-import { SpotifyTrack } from '@/generated/prisma/client'
 import type Genius from 'genius-lyrics'
 
 declare global {

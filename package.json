@@ -12,6 +12,38 @@
       "rebuild": "electron-rebuild -f -w better-sqlite3",
       "postinstall": "electron-builder install-app-deps"
    },
+   "build": {
+      "appId": "com.spotube.app",
+      "productName": "Spotube",
+      "publish": [
+         {
+            "provider": "github",
+            "owner": "yaGeey",
+            "repo": "spotube"
+         }
+      ],
+      "directories": {
+         "buildResources": "assets"
+      },
+      "mac": {
+         "target": [
+            "dmg",
+            "zip"
+         ]
+      },
+      "win": {
+         "target": [
+            "nsis",
+            "zip"
+         ]
+      },
+      "linux": {
+         "target": [
+            "AppImage",
+            "deb"
+         ]
+      }
+   },
    "dependencies": {
       "@ai-sdk/google": "^3.0.7",
       "@fontsource-variable/roboto-flex": "^5.2.8",

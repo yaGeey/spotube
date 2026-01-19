@@ -1,8 +1,6 @@
 import api, { logPrettyError } from '../lib/axios'
 import { win, store } from '../main'
 import chalk from 'chalk'
-import axios from 'axios'
-import prisma from './prisma'
 
 export async function getSpotifyToken(): Promise<{ access_token: string; expires_at: number } | null> {
    const token = store.get('spotify.access_token') as string | undefined
@@ -29,11 +27,11 @@ export async function getSpotifyToken(): Promise<{ access_token: string; expires
                Authorization:
                   'Basic ' +
                   Buffer.from(`${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`).toString(
-                     'base64'
+                     'base64',
                   ),
                'Content-Type': 'application/x-www-form-urlencoded',
             },
-         }
+         },
       )
 
       // Зберігаємо новий токен
@@ -47,50 +45,25 @@ export async function getSpotifyToken(): Promise<{ access_token: string; expires
    }
 }
 
-// TODO Metadata Sync
-export async function createAndSyncPlaylist(playlistId: string) {
+export async function searchSpotify({
+   query,
+   type,
+   limit = 10,
+}: {
+   query: string
+   type: 'album' | 'artist' | 'playlist' | 'track'
+   limit?: number
+}) {
    const accessToken = await getSpotifyToken().then((res) => res?.access_token)
    if (!accessToken) throw new Error('No Spotify access token available')
 
-   // fetch playlist with metadata
-   const { data: playlistRes } = await api.get<SpotifyApi.SinglePlaylistResponse>(
-      `https://api.spotify.com/v1/playlists/${playlistId}`,
-      {
-         headers: { Authorization: `Bearer ${accessToken}` },
-      }
-   )
-
-   let playlist = await prisma.spotifyPlaylist.findUnique({
-      where: { id: playlistRes.id },
-   })
-   if (!playlist) {
-      playlist = await prisma.spotifyPlaylist.create({
-         data: {
-            id: playlistRes.id,
-            title: playlistRes.name,
-            owner: playlistRes.owner.display_name || 'Unknown Owner',
-            thumbnailUrl: playlistRes.images[0]?.url,
-            snapshotId: playlistRes.snapshot_id,
-            fullResponse: playlistRes,
-            url: playlistRes.external_urls.spotify,
-         },
-      })
-   }
-   
-   return {playlist, playlistRes, accessToken}
-}
-
-export async function searchSpotify({query, type,limit=10}:{query: string, type: "album" | "artist" | "playlist" | "track", limit?: number}) {
-   const accessToken = await getSpotifyToken().then((res) => res?.access_token)
-   if (!accessToken) throw new Error('No Spotify access token available')
-   
    const { data } = await api.get<SpotifyApi.SearchResponse>('https://api.spotify.com/v1/search', {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: {
          q: query,
          type,
-         limit
-      }
+         limit,
+      },
    })
    return data[`${type}s`]
 }

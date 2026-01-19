@@ -1,0 +1,47 @@
+name: Release App
+
+on:
+   push:
+      tags:
+         - "v*" # Спрацьовує тільки якщо тег починається з "v", наприклад v1.0.0
+
+permissions:
+   contents: write # ДОЗВІЛ НА СТВОРЕННЯ РЕЛІЗІВ
+
+jobs:
+   release:
+      runs-on: ${{ matrix.os }}
+
+      strategy:
+         matrix:
+            os: [ubuntu-latest, windows-latest, macos-latest]
+
+      steps:
+         - name: Checkout code
+           uses: actions/checkout@v4
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v4
+           with:
+              node-version: 22
+              cache: "npm"
+
+         - name: Install dependencies
+           run: npm ci
+
+         - name: Generate Prisma Client
+           run: npx prisma generate
+           env:
+              DATABASE_URL: file:./dev.db
+
+         # Якщо у вас є нативні модулі (sqlite3, тощо), цей крок важливий
+         - name: Rebuild native modules
+           run: npm run rebuild
+           # Якщо скрипта rebuild немає, можна спробувати: npx electron-builder install-app-deps
+
+         - name: Build and Publish
+           env:
+              # Цей токен GitHub створює сам, нічого робити не треба
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+           run: |
+              npm exec electron-builder -- --publish always

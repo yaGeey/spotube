@@ -6,6 +6,7 @@ import { playlistsRouter } from './routers/playlists'
 import { tracksRouter } from './routers/tracks'
 import { lastFMRouter } from './routers/lastfm'
 import { systemRouter } from './routers/system'
+import geniusRouter from './routers/genius'
 
 export const appRouter = router({
    system: systemRouter,
@@ -16,5 +17,6 @@ export const appRouter = router({
    spotify: spotifyRouter,
    yt: youtubeRouter,
    lastfm: lastFMRouter,
+   genius: geniusRouter,
 })
 export type AppRouter = typeof appRouter

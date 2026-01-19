@@ -4,7 +4,6 @@ import Playlist from './routes/Playlist'
 import Layout from './layout'
 import Auth from './routes/Auth'
 import Test from './routes/Test'
-import AIPage from './routes/AIData'
 import Home from './routes/Home'
 import AuthGenius from './routes/AuthGenius'
 
@@ -16,7 +15,6 @@ function App() {
             <Route path=":id" element={<Playlist />} />
             <Route path="auth" element={<Auth />} />
             <Route path="test" element={<Test />} />
-            <Route path="ai" element={<AIPage />} />
             <Route path="auth-genius" element={<AuthGenius />} />
          </Route>
       </Routes>

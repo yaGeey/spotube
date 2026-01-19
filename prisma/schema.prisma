@@ -16,11 +16,10 @@ model MasterTrack {
   id           Int     @id @default(autoincrement())
   thumbnailUrl String?
 
-  title        String
-  titleLatin   String?
-  artists      String // Comma separated artist names
-  artistsLatin String?
-  script       String?
+  title      String
+  titleLatin String?
+  artists    Artist[]
+  script     String?
 
   spotify SpotifyTrack?
 
@@ -70,7 +69,7 @@ model Playlist {
   origin       PlaylistOrigin
   url          String?
 
-  playlistItems     PlaylistItem[]
+  playlistItems       PlaylistItem[]
   inCombinedPlaylists CombinedPlaylist[]
 
   updatedAt DateTime @updatedAt
@@ -93,6 +92,37 @@ model PlaylistItem {
   trackId    Int
 
   @@unique([playlistId, position])
+}
+
+// TODO
+// GeniusSocialLinks
+// lastfm silmilar artists
+// genius.alternate_names
+model Artist {
+  id Int @id @default(autoincrement())
+
+  name      String
+  latinName String?
+  script    String?
+
+  spotifyId      String        @default("")
+  geniusId       String?
+  ytChannelId    String        @default("")
+  links          ArtistLink[]
+  inMasterTracks MasterTrack[]
+
+  /// [LastFMArtist]
+  lastFM Json?
+
+  @@unique([name, spotifyId, ytChannelId])
+}
+
+model ArtistLink {
+  id       Int    @id @default(autoincrement())
+  platform String
+  url      String
+  artistId Int
+  artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
 }
 
 model CombinedPlaylist {
@@ -137,7 +167,7 @@ model LastFM {
   artist Json?
 
   masterTrackId Int         @unique
-  masterTrack   MasterTrack @relation(fields: [masterTrackId], references: [id])
+  masterTrack   MasterTrack @relation(fields: [masterTrackId], references: [id], onDelete: Cascade)
 }
 
 model Genius {
@@ -146,7 +176,7 @@ model Genius {
   fullResponse Json
 
   masterTrackId Int         @unique
-  masterTrack   MasterTrack @relation(fields: [masterTrackId], references: [id])
+  masterTrack   MasterTrack @relation(fields: [masterTrackId], references: [id], onDelete: Cascade)
 }
 
 model AI {

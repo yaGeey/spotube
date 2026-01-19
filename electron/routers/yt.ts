@@ -1,8 +1,6 @@
 import { publicProcedure, router } from '../trpc'
 import { google, youtube_v3 } from 'googleapis'
 import chalk from 'chalk'
-import api, { logPrettyError } from '../lib/axios'
-import { getFullLastFMInfo } from '../lib/lastfm'
 import { parseRelative } from '@/src/utils/time'
 import prisma, { playlistWithDeepRelations, PlaylistWithItems, TrackWithRelations, trackWithRelations } from '../lib/prisma'
 import { LastFM, MasterTrack, Prisma } from '@/generated/prisma/client'
@@ -161,9 +159,13 @@ export const youtubeRouter = router({
          if (videoDataParsed.length !== videos.length) {
             console.error(chalk.red('AI returned different number of items than input videos. Skipping AI metadata.'))
             videoDataParsed = videos.map((v) => ({
-               artists: [{ latinName: v.channel?.name || 'Unknown Artist', originalName: null }],
-               title: { latin: v.title, original: null },
-               script: null,
+               artists: [
+                  {
+                     name: { latin: v.channel?.name || 'Unknown Author', original: v.channel?.name || 'Unknown Author' },
+                     script: null,
+                  },
+               ],
+               title: { latin: v.title, original: v.title, script: null },
             }))
          } else console.log(chalk.green(`AI metadata extraction for ${videoDataParsed.length} completed`))
 
@@ -183,16 +185,30 @@ export const youtubeRouter = router({
                }
 
                // else create full master track with relations
-               const { title, artists, script } = videoDataParsed[index]
+               const { title, artists } = videoDataParsed[index]
                return prisma.masterTrack.create({
                   data: {
                      title: title.original || title.latin,
-                     artists:
-                        artists?.map((a) => a.originalName || a.latinName).join(', ') || v.channel?.name || 'Unknown Artist',
-
                      titleLatin: title.latin,
-                     artistsLatin: artists?.map((a) => a.latinName).join(', ') || v.channel?.name || 'Unknown Artist',
-                     script,
+                     script: title.script ?? undefined,
+
+                     artists: {
+                        connectOrCreate: artists.map((artist) => ({
+                           where: {
+                              name_spotifyId_ytChannelId: {
+                                 name: artist.name.original,
+                                 spotifyId: '',
+                                 ytChannelId: v.channel?.id || '',
+                              },
+                           },
+                           create: {
+                              name: artist.name.original,
+                              latinName: artist.name.latin,
+                              script: artist.script ?? undefined,
+                              ytChannelId: v.channel?.id,
+                           },
+                        })),
+                     },
 
                      thumbnailUrl: v.thumbnails[0]?.url,
                      playlistItems: {
@@ -251,13 +267,13 @@ export const youtubeRouter = router({
                         retries: 3,
                         onFailedAttempt: (error) => {
                            console.log(
-                              chalk.red(`Attempt ${error.attemptNumber} failed. There are ${error.retriesLeft} retries left.`)
+                              chalk.red(`Attempt ${error.attemptNumber} failed. There are ${error.retriesLeft} retries left.`),
                            )
                         },
-                     }
-                  )
-               )
-            )
+                     },
+                  ),
+               ),
+            ),
          )
          return results.filter((r) => r !== null)
       }),
@@ -270,7 +286,7 @@ export const youtubeRouter = router({
             title: z.string(),
             masterId: z.number(),
             refetch: z.boolean().optional().default(false),
-         })
+         }),
       )
       .mutation(async ({ input: item }) => {
          // check for cache
@@ -316,35 +332,37 @@ export const youtubeRouter = router({
       })
    }),
 
-   getAudioStream: publicProcedure.input(z.string()).mutation(async ({ input: videoId }) => {
-      const yt = await getYtInstance()
-      const info = await yt.getInfo(videoId)
+   getAudioStream: publicProcedure
+      .input(z.object({ id: z.string(), type: z.enum(['video', 'audio', 'video+audio']) }))
+      .mutation(async ({ input }) => {
+         const yt = await getYtInstance()
+         const info = await yt.getInfo(input.id)
 
-      const format = info.chooseFormat({
-         type: 'video+audio',
-         quality: 'best',
-      })
+         const format = info.chooseFormat({
+            type: input.type,
+            quality: 'best',
+         })
 
-      if (!format) {
-         throw new Error('Формат не знайдено')
-      }
+         if (!format) {
+            throw new Error('Формат не знайдено')
+         }
 
-      console.dir(format, { depth: null })
-      let streamUrl = format.url
+         console.dir(format, { depth: null })
+         let streamUrl = format.url
 
-      if (!streamUrl) {
-         streamUrl = await format.decipher(yt.session.player)
-      }
+         if (!streamUrl) {
+            streamUrl = await format.decipher(yt.session.player)
+         }
 
-      console.log('Direct Stream URL:', streamUrl)
+         console.log('Direct Stream URL:', streamUrl)
 
-      return {
-         url: streamUrl,
-         title: info.basic_info.title,
-         duration: info.basic_info.duration, // Може бути 0 для стрімів
-         thumbnail: info.basic_info.thumbnail?.[0]?.url,
-      }
-   }),
+         return {
+            url: streamUrl,
+            title: info.basic_info.title,
+            duration: info.basic_info.duration, // Може бути 0 для стрімів
+            thumbnail: info.basic_info.thumbnail?.[0]?.url,
+         }
+      }),
 })
 
 async function searchAndAddVideoToMaster({ qString, masterTrackId }: { qString: string; masterTrackId: number }) {

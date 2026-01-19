@@ -18,7 +18,7 @@ const Playlists = () => {
                <NavLink
                   to={`/${pl.id}`}
                   key={pl.id}
-                  className={({ isActive }) => twMerge('hover:text-lighter', isActive && 'text-lighter')}
+                  className={({ isActive }) => twMerge('hover:text-accent', isActive && 'text-accent')}
                   onClick={() => clearHistory()}
                   onContextMenu={(e) => {
                      e.preventDefault()

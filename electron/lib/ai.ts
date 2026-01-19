@@ -44,7 +44,7 @@ II. TITLE EXTRACTION LOGIC:
    - "title.original": Add this ONLY IF script is NOT "latin". Otherwise null.
 
 III. FALLBACK RULE:
-- If the title is not music (meme/vlog), return "artists": null and keep "title" as is.
+- If the title is not music (meme/vlog), return "artists": [Channel from input] and keep "title" as is.
 
 IV. BATCH INTEGRITY:
    - Process EVERY item. Do not skip IDs.
@@ -64,38 +64,32 @@ const ScriptEnum = z.enum([
 ])
 // add language
 const TrackSchema = z.object({
-   artists: z
-      .array(
-         z.object({
-            latinName: z.string().describe('The unified, Romanized (ASCII) name. Example: "Shiki Miyoshino", "Kasane Teto".'),
-            originalName: z
-               .string()
-               .nullable()
-               .describe(
-                  'The original name exactly as it appears in the source IF it contains non-ASCII characters (Kanji/Kana/Cyrillic). Return null if the name is already ASCII.'
-               ),
-            type: z
-               .enum(['main', 'feat', 'cover_artist', 'producer'])
-               .optional()
-               .describe('Optional: Helps logic separation. Main artist vs Feature vs Producer.'),
-         })
-      )
-      .nullable(),
+   artists: z.array(
+      z.object({
+         name: z
+            .object({
+               latin: z.string().describe('The Romanized (ASCII) name of the artist. Example: "Shiki Miyoshino", "Kasane Teto".'),
+               original: z.string().describe('The raw original name'),
+            })
+            .describe('Artist name object containing latin and original forms.'),
+         type: z
+            .enum(['main', 'feat', 'cover_artist', 'producer'])
+            .optional()
+            .describe('Optional: Helps logic separation. Main artist vs Feature vs Producer.'),
+         script: ScriptEnum.nullable().describe('The writing system (script) used in the ORIGINAL artist name'),
+      }),
+   ),
    title: z.object({
       latin: z.string().describe('The Romanized (ASCII) title of the track, preserving version tags.'),
-      original: z
-         .string()
-         .nullable()
-         .describe(
-            'The raw original title ONLY IF it contains non-ASCII characters. If the input was already English/ASCII, set this to null.'
-         ),
+      original: z.string().describe('The raw original title'),
+      script: ScriptEnum.nullable().describe('The writing system (script) used in the ORIGINAL title.'),
    }),
-   script: ScriptEnum.nullable().describe('The writing system (script) used in the ORIGINAL data.'),
 })
 const ResponseSchema = z.array(TrackSchema)
 
+// TOOD hide in env
 const google = createGoogleGenerativeAI({
-   apiKey: 'AIzaSyCDv-r4yd7weQyzwu2Hw7QCqWIOgWi3lBI',
+   apiKey: 'AIzaSyD7mIKM8TQkztKHKr4Iku88sLfH-1gfnUA',
 })
 
 // TODO gemini extracts from youtube
@@ -122,6 +116,7 @@ export async function extractArtistsAndTitle({ data }: { data: { author: string;
          schema: z.array(TrackSchema),
       }),
    })
+   console.dir(output, { depth: null })
    return output
 }
 

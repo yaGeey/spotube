@@ -59,7 +59,7 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
 
          // Column 2: Info (Art + Title + Artist)
          columnHelper.accessor(
-            (row) => row.track?.artistsLatin?.split(', ') ?? row.track?.artists.split(', ') ?? [row.track.yt?.[0].author],
+            (row) => row.track?.artists.flatMap((a) => [a.name, a.latinName].filter(Boolean)) ?? [row.track.yt?.[0].author],
             {
                id: 'info',
                header: 'Info',
@@ -67,18 +67,10 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                filterFn: 'arrIncludesSome',
                cell: (info) => {
                   const t = info.row.original.track
-                  const { spotify, yt } = t
-                  const isPlaying = !!(current?.yt?.[0]?.id && current.yt[0].id === yt?.[0]?.id)
+                  const isPlaying = !!(current?.yt?.[0]?.id && current.yt[0].id === t.yt?.[0]?.id)
+                  const showLatin = t.titleLatin && t.script && !userScripts.includes(t.script)
 
                   const filterValue = info.column.getFilterValue() as string[] | undefined
-                  const handleNavigateToAI = (e: React.MouseEvent) => {
-                     e.stopPropagation() // Зупиняємо спливання, щоб не спрацював row click
-                     if (t.title && t.artists) {
-                        navigate(
-                           `/ai?artist=${encodeURIComponent(t.artists.split(', ')[0])}&title=${encodeURIComponent(t.title)}`,
-                        )
-                     }
-                  }
 
                   return (
                      <div className="py-1.5 max-w-[350px]">
@@ -106,17 +98,11 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                                  // onClick={handleNavigateToAI}
                                  className={twMerge(
                                     'text-text font-medium hover:underline cursor-pointer truncate text-sm md:text-base',
-                                    isPlaying && 'text-lighter',
+                                    isPlaying && 'text-accent',
                                  )}
                               >
-                                 <span
-                                    className={t.titleLatin && !userScripts.includes(t.script ?? '') ? 'group-hover:hidden' : ''}
-                                 >
-                                    {t.title}
-                                 </span>
-                                 {t.titleLatin && !userScripts.includes(t.script ?? '') && (
-                                    <span className="hidden group-hover:inline">{t.titleLatin}</span>
-                                 )}
+                                 <span className={showLatin ? 'group-hover:hidden' : ''}>{t.title}</span>
+                                 {showLatin && <span className="hidden group-hover:inline">{t.titleLatin}</span>}
                                  <InfoIcon data={t.lastFM?.track?.wiki?.content} />
                               </span>
 
@@ -124,24 +110,23 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                                  className="text-xs text-text-subtle cursor-pointer truncate transition-colors"
                                  onClick={(e) => {
                                     e.stopPropagation()
-                                    if (!yt || yt.length === 0) return
+                                    if (!t.yt || t.yt.length === 0) return
                                  }}
                               >
-                                 {/* TODO lastfm for each artist, noy only first */}
-                                 {t.artists?.split(', ').map((a, index) => {
-                                    const artistLatin = t.artistsLatin?.split(', ')[index] || a
-                                    const isActive = filterValue?.includes(artistLatin) ?? false
+                                 {t.artists.map((a, index) => {
+                                    const isActive =
+                                       filterValue?.includes(a.name) || (a.latinName && filterValue?.includes(a.latinName))
+                                    const showLatin = a.latinName && a.script && !userScripts.includes(a.script)
                                     return (
-                                       <span key={artistLatin + index}>
+                                       <span key={a.name + index + a.latinName}>
                                           <span
                                              onClick={(e) => {
                                                 e.stopPropagation()
-                                                console.log(t.script)
                                                 if (isActive) {
-                                                   const newFilter = filterValue?.filter((p) => p !== artistLatin)
+                                                   const newFilter = filterValue?.filter((p) => p !== a.name && p !== a.latinName)
                                                    info.column.setFilterValue(newFilter)
                                                 } else {
-                                                   info.column.setFilterValue([...(filterValue ?? []), artistLatin])
+                                                   info.column.setFilterValue([...(filterValue ?? []), a.name])
                                                 }
                                              }}
                                              className={twMerge(
@@ -149,25 +134,15 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                                                 isActive && 'text-green-400 font-bold underline',
                                              )}
                                           >
-                                             <span
-                                                className={
-                                                   artistLatin && !userScripts.includes(t.script ?? '')
-                                                      ? 'group-hover:hidden'
-                                                      : ''
-                                                }
-                                             >
-                                                {a}
-                                             </span>
-                                             {artistLatin && !userScripts.includes(t.script ?? '') && (
-                                                <span className="hidden group-hover:inline">{artistLatin}</span>
-                                             )}
+                                             <span className={showLatin ? 'group-hover:hidden' : ''}>{a.name}</span>
+                                             {showLatin && <span className="hidden group-hover:inline">{a.latinName}</span>}
+                                             <InfoIcon data={a.lastFM?.bio?.content} />
                                           </span>
 
-                                          {index < t.artists.split(', ').length - 1 && ', '}
+                                          {index < t.artists.length - 1 && ', '}
                                        </span>
                                     )
                                  })}
-                                 <InfoIcon data={t.lastFM?.artist?.bio?.content} />
                                  <InfoIcon data={t.lastFM?.album?.wiki?.content} />
                               </div>
                            </div>
@@ -220,48 +195,67 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
          ),
 
          // Column 5: Tags
-         columnHelper.accessor((row) => row.track.lastFM?.artist?.tags.tag.map((t) => t.name), {
-            id: 'tags',
-            header: 'Tags',
-            size: 200,
-            filterFn: 'arrIncludesAll',
-            cell: (info) => {
-               const tags = info.row.original.track.lastFM?.artist?.tags.tag
-               const filterValue = info.column.getFilterValue() as string[] | undefined
-               return (
-                  <div className="px-0.5 text-xs text-text-subtle max-w-[150px] hidden lg:block">
-                     <div className="flex flex-wrap gap-1">
-                        {Array.isArray(tags) &&
-                           tags.map((t) => {
-                              const isActive = filterValue?.includes(t.name) ?? false
-                              return (
-                                 <span
-                                    key={t.name}
-                                    onClick={(e) => {
-                                       e.stopPropagation()
-                                       if (isActive) {
-                                          // Remove from filter
-                                          const newFilter = filterValue?.filter((name) => name !== t.name)
-                                          info.column.setFilterValue(newFilter)
-                                       } else {
-                                          // Add to filter
-                                          info.column.setFilterValue([...(filterValue ?? []), t.name])
-                                       }
-                                    }}
-                                    className={twMerge(
-                                       'cursor-pointer hover:text-white transition-colors hover:underline',
-                                       isActive ? 'text-green-400 font-bold underline' : '',
-                                    )}
-                                 >
-                                    #{t.name}
-                                 </span>
-                              )
-                           })}
-                     </div>
-                  </div>
-               )
+         columnHelper.accessor(
+            (row) => {
+               const albumTags = row.track.lastFM?.album?.tags?.tag
+               const trackTags = row.track.lastFM?.track?.toptags?.tag
+               const artistTags = row.track.artists.flatMap((a) => {
+                  const tags = a.lastFM?.tags?.tag
+                  if (!tags) return []
+                  return Array.isArray(tags) ? tags.map((t) => t.name) : [(tags as any).name]
+               })
+
+               const allTags = [
+                  ...(albumTags ? (Array.isArray(albumTags) ? albumTags.map((t) => t.name) : [(albumTags as any).name]) : []),
+                  ...(trackTags ? (Array.isArray(trackTags) ? trackTags.map((t) => t.name) : [(trackTags as any).name]) : []),
+                  ...artistTags,
+               ]
+
+               return Array.from(new Set(allTags))
             },
-         }),
+            {
+               id: 'tags',
+               header: 'Tags',
+               size: 200,
+               filterFn: 'arrIncludesAll',
+               cell: (info) => {
+                  const tags = info.getValue()
+                  const filterValue = info.column.getFilterValue() as string[] | undefined
+                  return (
+                     <div className="px-0.5 text-xs/4 text-text-subtle max-w-[150px] max-h-12 overflow-y-auto scrollbar-hide hidden lg:block">
+                        <div className="flex flex-wrap gap-1">
+                           {Array.isArray(tags) &&
+                              tags.map((t) => {
+                                 const isActive = filterValue?.includes(t) ?? false
+                                 return (
+                                    <span
+                                       key={t}
+                                       onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (isActive) {
+                                             // Remove from filter
+                                             const newFilter = filterValue?.filter((name) => name !== t)
+                                             info.column.setFilterValue(newFilter)
+                                          } else {
+                                             // Add to filter
+                                             info.column.setFilterValue([...(filterValue ?? []), t])
+                                          }
+                                       }}
+                                       className={twMerge(
+                                          'cursor-pointer hover:text-white transition-colors hover:underline',
+                                          isActive ? 'text-green-400 font-bold underline' : '',
+                                       )}
+                                    >
+                                       #{t}
+                                    </span>
+                                 )
+                              })}
+                        </div>
+                     </div>
+                  )
+               },
+            },
+         ),
       ],
       [current, navigate, userScripts],
    )

@@ -1,6 +1,6 @@
 import z from 'zod'
 import { publicProcedure, router } from '../trpc'
-import { getSpotifyToken } from '../lib/spotify'
+import { getSpotifyToken, searchSpotify } from '../lib/spotify'
 import api from '../lib/axios'
 import prisma, { playlistWithDeepRelations, PlaylistWithItems } from '../lib/prisma'
 import chalk from 'chalk'
@@ -107,7 +107,18 @@ export const spotifyRouter = router({
                const newTrack = await prisma.masterTrack.create({
                   data: {
                      title: item.track.name,
-                     artists: item.track.artists.map((a) => a.name).join(', '),
+                     artists: {
+                        connectOrCreate: item.track.artists.map((artist) => ({
+                           where: {
+                              name_spotifyId_ytChannelId: {
+                                 name: artist.name,
+                                 spotifyId: artist.id,
+                                 ytChannelId: '',
+                              } satisfies Prisma.ArtistNameSpotifyIdYtChannelIdCompoundUniqueInput,
+                           },
+                           create: { name: artist.name, spotifyId: artist.id },
+                        })),
+                     },
                      thumbnailUrl: item.track.album.images[0]?.url,
                      spotify: {
                         //TODO connect because spotifyTrack can already exist as orphaned record (fix this)
@@ -120,7 +131,7 @@ export const spotifyRouter = router({
                            },
                         },
                      },
-                  },
+                  } satisfies Prisma.MasterTrackCreateInput,
                })
                tracksMap.set(id, newTrack.id)
             }
@@ -202,4 +213,11 @@ export const spotifyRouter = router({
          })
       })
    }),
+
+   searchPlaylists: publicProcedure
+      .input(z.string())
+      .query(async ({ input: query }) => await searchSpotify({ query, type: 'playlist' })),
+   searchTracks: publicProcedure
+      .input(z.string())
+      .query(async ({ input: query }) => await searchSpotify({ query, type: 'track' })),
 })

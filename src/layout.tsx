@@ -6,9 +6,9 @@ import { ToastContainer } from 'react-toastify'
 
 export default function Layout() {
    return (
-      <div className="pb-[90px] bg-main/95 text-text text-sm">
+      <div className="pb-[90px] text-text text-sm">
          {/* <Header /> */}
-         <nav className="flex gap-2 w-full bg-pink-200/40 px-4">
+         <nav className="flex gap-2 w-full bg-pink-200/40 px-4 fixed top-0 left-0 h-5">
             {/* end - exact path */}
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
                Home
@@ -23,9 +23,11 @@ export default function Layout() {
                AuthGenius
             </NavLink>
          </nav>
-         <div className="flex">
+         <div className="mt-5 flex">
             <Playlists />
-            <Outlet />
+            <div className="flex-1 pr-[320px]">
+               <Outlet />
+            </div>
          </div>
          <Player />
          <ToastContainer position="top-right" newestOnTop pauseOnHover />

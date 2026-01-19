@@ -5,7 +5,6 @@ import { trpc, vanillaTrpc } from '@/src/utils/trpc'
 import { queryClient } from '@/src/main'
 import { create } from 'mutative'
 import { PlaylistWithItems, TrackWithRelations } from '@/electron/lib/prisma'
-import updateTrackInQuery, { queryKey } from '@/src/utils/updateTrack'
 
 export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = (set, get) => ({
    playerRef: null,
@@ -24,13 +23,13 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
 
       let videoId = forceVideoId ?? track.defaultYtVideoId ?? track.yt?.[0]?.id
       let data: TrackWithRelations = track
-      
+
       // if no yt - add
       if (!track.yt || !track.yt[0]) {
          set({ isYtLoading: true })
          console.warn('No youtube video provided. Fetching...')
          data = (await vanillaTrpc.yt.upsertVideosToMasterFromSpotify.mutate({
-            artist: track.artists.split(',')[0],
+            artist: track.artists.map((a) => a.name).join(', '),
             title: track.title,
             masterId: track.id,
          })) as TrackWithRelations

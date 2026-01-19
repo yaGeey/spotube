@@ -69,12 +69,28 @@ export async function createAndSyncPlaylist(playlistId: string) {
             id: playlistRes.id,
             title: playlistRes.name,
             owner: playlistRes.owner.display_name || 'Unknown Owner',
-            thumbnail_url: playlistRes.images[0]?.url,
-            snapshot_id: playlistRes.snapshot_id,
+            thumbnailUrl: playlistRes.images[0]?.url,
+            snapshotId: playlistRes.snapshot_id,
+            fullResponse: playlistRes,
             url: playlistRes.external_urls.spotify,
          },
       })
    }
    
    return {playlist, playlistRes, accessToken}
+}
+
+export async function searchSpotify({query, type,limit=10}:{query: string, type: "album" | "artist" | "playlist" | "track", limit?: number}) {
+   const accessToken = await getSpotifyToken().then((res) => res?.access_token)
+   if (!accessToken) throw new Error('No Spotify access token available')
+   
+   const { data } = await api.get<SpotifyApi.SearchResponse>('https://api.spotify.com/v1/search', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: {
+         q: query,
+         type,
+         limit
+      }
+   })
+   return data[`${type}s`]
 }

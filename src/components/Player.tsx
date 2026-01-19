@@ -5,6 +5,7 @@ import PlayerVolume from './PlayerVolume'
 // prettier-ignore
 import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, SkipForwardIcon, RepeatIcon, Mic2Icon, ListMusicIcon, MonitorSpeakerIcon } from './Icons'
 import { twMerge } from 'tailwind-merge'
+import { vanillaTrpc } from '../utils/trpc'
 
 export default function Player() {
    const { current, toggle, playerRef, isPlaying, next, back, randomType, setRandomType } = useAudioStore()
@@ -48,7 +49,7 @@ export default function Player() {
          ref={containerRef}
       >
          {/* Left: Track Info */}
-         <div className="flex items-center w-[30%] min-w-[180px]">
+         <div className="flex items-center w-[30%] min-w-[180px] px-4">
             {/* Album Art */}
             <div className="w-14 h-14 bg-neutral-800 mr-4 rounded-md flex-shrink-0 overflow-hidden shadow-lg relative group">
                <div className="w-full h-full flex items-center justify-center text-neutral-500 bg-neutral-800">
@@ -62,20 +63,38 @@ export default function Player() {
             {/* Track Title & Artists */}
             <div className="flex flex-col overflow-hidden">
                <span className="text-sm font-medium hover:underline cursor-pointer truncate text-text">{current.title}</span>
-               <span className="text-xs text-text-subtle hover:underline cursor-pointer truncate hover:text-text transition-colors">
-                  {current.artists}
-               </span>
+               <div className="truncate text-text-subtle">
+                  {current.artists.map((a, index) => (
+                     <>
+                        <span
+                           key={a.id}
+                           className="text-xs hover:underline cursor-pointer truncate hover:text-text transition-colors"
+                           onClick={(e) => {
+                              if (e.ctrlKey) {
+                                 if (a.spotifyId)
+                                    vanillaTrpc.system.openExternalLink.mutate(`https://open.spotify.com/artist/${a.spotifyId}`)
+                                 if (a.ytChannelId)
+                                    vanillaTrpc.system.openExternalLink.mutate(`https://www.youtube.com/channel/${a.ytChannelId}`)
+                              }
+                           }}
+                        >
+                           {a.name}
+                        </span>
+                        {index < current.artists.length - 1 && ', '}
+                     </>
+                  ))}
+               </div>
             </div>
-            <button className="ml-4 text-text-subtle hover:text-text transition-colors">
+            {/* <button className="ml-4 text-text-subtle hover:text-text transition-colors">
                <HeartIcon className="w-4 h-4" />
-            </button>
+            </button> */}
          </div>
 
          {/* Center: Controls */}
          <div className="flex flex-col items-center max-w-[40%] w-full">
             <div className="flex items-center gap-6 mb-2">
                <button
-                  className={twMerge('text-text-subtle hover:text-text transition-colors', randomType && 'text-lighter')}
+                  className={twMerge('text-text-subtle hover:text-text transition-colors', randomType && 'text-accent')}
                   title="Shuffle"
                   onClick={() => setRandomType(randomType === 'true' ? null : 'true')}
                >

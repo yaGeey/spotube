@@ -5,8 +5,10 @@ import { youtubeRouter } from './routers/yt'
 import { playlistsRouter } from './routers/playlists'
 import { tracksRouter } from './routers/tracks'
 import { lastFMRouter } from './routers/lastfm'
+import { systemRouter } from './routers/system'
 
 export const appRouter = router({
+   system: systemRouter,
    tracks: tracksRouter,
    playlists: playlistsRouter,
 

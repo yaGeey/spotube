@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import YouTube from 'react-youtube'
 import { useAudioStore } from '../audio_store/useAudioStore'
 import Button from '../components/Button'
-import { YtPayload, YtPayloadWithPlaylist } from '@/electron/ipc/yt'
 import YtVideoCards from '../components/YtVideoCards'
 import { trpc, vanillaTrpc } from '../utils/trpc'
 import TracksTable from '../components/Table'
@@ -10,8 +9,6 @@ import { useParams } from 'react-router-dom'
 import { twMerge } from 'tailwind-merge'
 import SwitchDiv from '../components/nav/SwitchDiv'
 import TrackInfo from '../components/TrackInfo'
-import { PlaylistWithItems } from '@/electron/lib/prisma'
-import { PlaylistItem } from '@/generated/prisma/client'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -28,14 +25,14 @@ export default function Playlist() {
    const playerRef = useRef<any>(null)
    useEffect(() => setPlaylistId(playlistId), [setPlaylistId, playlistId])
 
-   const lastfmmutation = trpc.lastfm.upsertBatch.useMutation()
+   const lastFMMutation = trpc.lastfm.upsertBatchFromMasterTracks.useMutation()
 
    const playlist = trpc.playlists.getById.useQuery(playlistId)
    const isYt = playlist.data?.origin === 'YOUTUBE'
    if (!playlist.data) return <div>Loading...</div>
    return (
-      <div className="grid grid-cols-[minmax(500px,_1fr)_320px] w-full">
-         <div className="p-3">
+      <div>
+         <div className="p-3 w-full">
             <div className="flex gap-2">
                <Button onClick={() => play({ track: tracks[Math.round(Math.random() * tracks.length - 1)] })}>PLAY random</Button>
                <Button onClick={() => stop()}>STOP</Button>
@@ -51,10 +48,7 @@ export default function Playlist() {
                </Button>
                <Button
                   onClick={async () => {
-                     // TODO only for first artist
-                     const data = await lastfmmutation.mutateAsync(
-                        tracks.map((t) => ({ artist: t.artists.split(',')[0], title: t.title, masterId: t.id })),
-                     )
+                     const data = await lastFMMutation.mutateAsync(tracks)
                      if (data) alert('LastFM data upserted. Reload the page')
                   }}
                >
@@ -96,17 +90,7 @@ export default function Playlist() {
                      */
                      if (event.data === 1 || event.data === 3) {
                         const available = event.target.getAvailableQualityLevels()
-                        console.log('Available qualities:', available)
-                        console.log('Current quality:', event.target.getPlaybackQuality())
-
-                        if (available.length > 0) {
-                           event.target.setPlaybackQuality(available[0])
-
-                           // Перевірка через секунду чи застосувалось
-                           setTimeout(() => {
-                              console.log('Quality after set:', event.target.getPlaybackQuality())
-                           }, 1000)
-                        }
+                        console.log(event.target.getPlaybackQuality(), available)
                      }
                   }}
                   onPlay={() => setIsPlaying(true)}
@@ -116,7 +100,7 @@ export default function Playlist() {
             </div>
             {playlist.data && <TracksTable data={playlist.data.playlistItems} playlistId={playlist.data.id} />}
          </div>
-         <div>
+         <div className="fixed right-0 top-[30px] bottom-[90px] w-[320px]">
             {!isYt && <SwitchDiv value={selectedPanel} setValue={setSelectedPanel} />}
             {selectedPanel === 'yt' && <YtVideoCards />}
             {(selectedPanel === 'info' || isYt) && current && <TrackInfo data={current} />}

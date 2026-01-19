@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/roboto-flex/index.css';
 @plugin '@tailwindcss/typography';
+@plugin 'tailwind-scrollbar';
 
 :root {
    --font-family: 'Roboto Flex Variable', sans-serif;
@@ -20,12 +21,66 @@
    --color-main: #181818;
    --color-text-subtle: oklch(0.75 0.025 357);
 }
+
+body {
+   background-color: var(--color-main-lighter);
+}
+
 @theme inline {
    --color-main: oklch(0.209 0 0);
+   --color-main-lighter: oklch(0.25 0 0);
    --color-darker: oklch(0.24 0.06 4.2);
    --color-dark: oklch(0.4 0.14 4.6);
-   --color-light: oklch(0.55 0.17 6);
-   --color-lighter: oklch(0.7 0.18 6);
+   --color-accent-darker: oklch(0.55 0.17 6);
+   --color-accent: oklch(0.7 0.18 6);
    --color-text: oklch(0.95 0.01 0);
    --color-text-subtle: oklch(0.7 0.01 0);
+}
+
+@layer utilities {
+   .no-jump {
+      /* Змушує створити новий шар композиції (GPU) */
+      transform: translateZ(0);
+
+      /* Приховує зворотний бік, що часто фіксить тремтіння в WebKit */
+      backface-visibility: hidden;
+
+      /* Додаткова підказка браузеру про майбутні зміни */
+      will-change: transform;
+
+      /* Фіксація згладжування шрифту (особливо для macOS/iOS) */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+   }
+
+   .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+   }
+
+   .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+   }
+}
+
+@layer base {
+   *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+   }
+
+   *::-webkit-scrollbar-track {
+      border-radius: 100vh;
+      background: var(--color-main);
+   }
+
+   *::-webkit-scrollbar-thumb {
+      background: var(--color-darker);
+      border-radius: 100vh;
+      border: 2px solid var(--color-main);
+   }
+
+   *::-webkit-scrollbar-thumb:hover {
+      background: var(--color-dark);
+   }
 }

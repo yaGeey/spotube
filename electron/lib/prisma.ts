@@ -16,6 +16,7 @@ export const trackWithRelations = {
    },
    genius: true,
    lastFM: true,
+   artists: true
 } satisfies Prisma.MasterTrackInclude
 
 export const playlistWithDeepRelations = {

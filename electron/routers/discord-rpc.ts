@@ -1,5 +1,4 @@
 import { publicProcedure, router } from '../trpc'
-import { TrackCombined } from '../../src/types/types'
 import chalk from 'chalk'
 import { z } from 'zod'
 import { createRequire } from 'node:module'
@@ -30,9 +29,6 @@ function setActivity(payload: any) {
          pid: process.pid,
          activity: payload,
       })
-      .catch((err: any) => {
-         console.error('Error Discord RAW SET_ACTIVITY:', err)
-      })
 }
 
 const idleStatus = {
@@ -57,7 +53,7 @@ export const discordRpcRouter = router({
       const release_date = spotifyTrack?.album.release_date?.split('-')[0]
       setActivity({
          details: t.title,
-         state: t.artists,
+         state: t.artists.map((a) => a.name).join(', '),
          ...(duration && {
             timestamps: {
                start: Date.now(),
@@ -72,7 +68,7 @@ export const discordRpcRouter = router({
                  large_image: spotifyTrack?.album.images[0].url,
                  large_text:
                     spotifyTrack?.album.name === spotify?.title
-                       ? `(${release_date})`
+                       ? `${release_date}`
                        : `${spotifyTrack?.album.name} (${release_date})`,
                  large_url: spotifyTrack?.album.external_urls.spotify,
                  small_image: 'spotify',
@@ -81,7 +77,7 @@ export const discordRpcRouter = router({
               }
             : {
                  large_image: currentVideo?.thumbnailUrl.replace('http://', 'https://'),
-                 large_text: currentVideo?.title,
+                 large_text: null,
                  large_url: `https://www.youtube.com/watch?v=${currentVideo?.id}`,
                  small_image: 'youtube',
                  small_text: 'Listening from YouTube',

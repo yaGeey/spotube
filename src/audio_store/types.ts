@@ -21,6 +21,7 @@ export interface PlayerSlice {
    setIsPlaying: (isPlaying: boolean) => void
    playlistId: number | undefined
    setPlaylistId: (playlistId: number) => void
+   updateState: (state: Partial<PlayerSlice>) => void
 }
 
 export interface TrackSlice {

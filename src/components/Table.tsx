@@ -26,7 +26,11 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 const columnHelper = createColumnHelper<PlaylistItemWithRelations>()
 
 export default function TracksTable({ data, playlistId }: { data: PlaylistItemWithRelations[]; playlistId: number }) {
-   const { play, current, setTracks, addYtVideoToTrack, isYtLoading } = useAudioStore()
+   const play = useAudioStore((state) => state.play)
+   const current = useAudioStore((state) => state.current)
+   const setTracks = useAudioStore((state) => state.setTracks)
+   const isYtLoading = useAudioStore((state) => state.isYtLoading)
+
    const navigate = useNavigate()
    const [sorting, setSorting] = useState<SortingState>([])
    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])

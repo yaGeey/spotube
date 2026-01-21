@@ -16,6 +16,7 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
    setIsPlaying: (isPlaying) => set({ isPlaying }),
    playlistId: undefined,
    setPlaylistId: (playlistId) => set({ playlistId }),
+   updateState: (state) => set((p) => ({ ...p, ...state })),
 
    play: async ({ track, forceVideoId, skipHistory }) => {
       const { playerRef, addToHistory, addYtVideoToTrack, playlistId, isYtLoading } = get()

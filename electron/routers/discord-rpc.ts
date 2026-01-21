@@ -77,7 +77,7 @@ export const discordRpcRouter = router({
               }
             : {
                  large_image: currentVideo?.thumbnailUrl.replace('http://', 'https://'),
-                 large_text: null,
+                 large_text: currentVideo?.publishedAt.getFullYear().toString(),
                  large_url: `https://www.youtube.com/watch?v=${currentVideo?.id}`,
                  small_image: 'youtube',
                  small_text: 'Listening from YouTube',

@@ -20,6 +20,9 @@
    --color-950: oklch(0.15 0.03 359);
    --color-main: #181818;
    --color-text-subtle: oklch(0.75 0.025 357);
+
+   -webkit-font-smoothing: antialiased;
+   -moz-osx-font-smoothing: grayscale;
 }
 
 body {

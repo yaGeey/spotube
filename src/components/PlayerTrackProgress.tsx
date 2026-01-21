@@ -4,7 +4,10 @@ import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import Progress from './Progress'
 
 export default function PlayerTrackProgress() {
-   const { current, playerRef, isPlaying } = useAudioStore()
+   const current = useAudioStore((state) => state.current)
+   const isPlaying = useAudioStore((state) => state.isPlaying)
+   const playerRef = useAudioStore((state) => state.playerRef)
+   
    const [time, setTime] = useState(0) // in seconds
    const [duration, setDuration] = useState(0) // in seconds
    const [progress, setProgress] = useState(0)

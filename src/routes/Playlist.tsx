@@ -9,6 +9,7 @@ import { useParams } from 'react-router-dom'
 import { twMerge } from 'tailwind-merge'
 import SwitchDiv from '../components/nav/SwitchDiv'
 import TrackInfo from '../components/TrackInfo'
+import { useShallow } from 'zustand/react/shallow'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -20,7 +21,19 @@ export default function Playlist() {
    const [isFullScreen, setIsFullScreen] = useState(false)
    const [selectedPanel, setSelectedPanel] = useState<'info' | 'yt'>('yt')
 
-   const { current, play, stop, setPlayerRef, setIsPlaying, tracks, next, setPlaylistId, updateTrack } = useAudioStore()
+   const { current, play, stop, setPlayerRef, setIsPlaying, tracks, next, setPlaylistId } = useAudioStore(
+      useShallow((state) => ({
+         current: state.current,
+         play: state.play,
+         stop: state.stop,
+         setPlayerRef: state.setPlayerRef,
+         setIsPlaying: state.setIsPlaying,
+         tracks: state.tracks,
+         next: state.next,
+         setPlaylistId: state.setPlaylistId,
+      })),
+   )
+
    const [isPlayerVisible, setIsPlayerVisible] = useState(true)
    const playerRef = useRef<any>(null)
    useEffect(() => setPlaylistId(playlistId), [setPlaylistId, playlistId])

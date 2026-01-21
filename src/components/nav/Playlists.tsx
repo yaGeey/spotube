@@ -6,7 +6,7 @@ import { twMerge } from 'tailwind-merge'
 import { MusicIcon } from '../Icons'
 
 const Playlists = () => {
-   const { clearHistory } = useAudioStore()
+   const clearHistory = useAudioStore((state) => state.clearHistory)
    const playlists = trpc.playlists.getAll.useQuery()
    const deleteSpotifyPlaylist = trpc.spotify.deletePlaylist.useMutation()
    const deleteYoutubePlaylist = trpc.yt.deletePlaylist.useMutation()

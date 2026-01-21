@@ -6,9 +6,21 @@ import PlayerVolume from './PlayerVolume'
 import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, SkipForwardIcon, RepeatIcon, Mic2Icon, ListMusicIcon, MonitorSpeakerIcon } from './Icons'
 import { twMerge } from 'tailwind-merge'
 import { vanillaTrpc } from '../utils/trpc'
+import { useShallow } from 'zustand/react/shallow'
 
 export default function Player() {
-   const { current, toggle, playerRef, isPlaying, next, back, randomType, setRandomType } = useAudioStore()
+   const { current, toggle, playerRef, isPlaying, next, back, randomType, setRandomType } = useAudioStore(
+      useShallow((state) => ({
+         current: state.current,
+         toggle: state.toggle,
+         playerRef: state.playerRef,
+         isPlaying: state.isPlaying,
+         next: state.next,
+         back: state.back,
+         randomType: state.randomType,
+         setRandomType: state.setRandomType,
+      })),
+   )
 
    useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -65,9 +77,8 @@ export default function Player() {
                <span className="text-sm font-medium hover:underline cursor-pointer truncate text-text">{current.title}</span>
                <div className="truncate text-text-subtle">
                   {current.artists.map((a, index) => (
-                     <>
+                     <span key={a.id}>
                         <span
-                           key={a.id}
                            className="text-xs hover:underline cursor-pointer truncate hover:text-text transition-colors"
                            onClick={(e) => {
                               if (e.ctrlKey) {
@@ -81,7 +92,7 @@ export default function Player() {
                            {a.name}
                         </span>
                         {index < current.artists.length - 1 && ', '}
-                     </>
+                     </span>
                   ))}
                </div>
             </div>

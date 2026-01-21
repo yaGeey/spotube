@@ -2,7 +2,9 @@ import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import { trpc } from '../utils/trpc'
 
 export default function YtVideoCards() {
-   const { play, current, updateDefaultVideo } = useAudioStore()
+   const play = useAudioStore((state) => state.play)
+   const current = useAudioStore((state) => state.current)
+   const updateDefaultVideo = useAudioStore((state) => state.updateDefaultVideo)
 
    const mutation = trpc.tracks.updateDefaultVideo.useMutation()
    const handleClick = (ytId: string) => {

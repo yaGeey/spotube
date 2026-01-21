@@ -5,7 +5,7 @@ import { faVolumeHigh, faVolumeLow, faVolumeOff, faVolumeXmark } from '@fortawes
 import Progress from './Progress'
 
 export default function PlayerVolume() {
-   const { playerRef } = useAudioStore()
+   const playerRef = useAudioStore((state) => state.playerRef)
 
    const [isMuted, setIsMuted] = useState<boolean>(() => {
       const savedIsMuted = localStorage.getItem('player-muted')
@@ -13,7 +13,7 @@ export default function PlayerVolume() {
    })
    const [volume, setVolume] = useState<number>(() => {
       const savedVolume = localStorage.getItem('player-volume')
-      return savedVolume ? parseInt(savedVolume, 10) : playerRef?.getVolume() ?? 0
+      return savedVolume ? parseInt(savedVolume, 10) : (playerRef?.getVolume() ?? 0)
    })
 
    useEffect(() => {

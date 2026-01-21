@@ -197,6 +197,7 @@ export const youtubeRouter = router({
                               author: v.channel?.name ?? 'Unknown Author',
                               duration: v.duration || 0,
                               views: v.viewCount || 0,
+                              // TODO why always new date here?
                               publishedAt: v.uploadDate ? parseRelative(v.uploadDate) : new Date(),
                               thumbnailUrl: v.thumbnails[0]?.url || '',
                            },

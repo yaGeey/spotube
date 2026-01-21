@@ -8,6 +8,7 @@ import { PlaylistWithItems, TrackWithRelations } from '@/electron/lib/prisma'
 
 export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = (set, get) => ({
    playerRef: null,
+   shakaRef: null,
    isPlaying: false,
    setPlayerRef: (ref) => {
       ref.hideVideoInfo()
@@ -19,8 +20,8 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
    updateState: (state) => set((p) => ({ ...p, ...state })),
 
    play: async ({ track, forceVideoId, skipHistory }) => {
-      const { playerRef, addToHistory, addYtVideoToTrack, playlistId, isYtLoading } = get()
-      if (!playerRef) return console.warn('⚠️ Player not ready')
+      const { playerRef, addToHistory, addYtVideoToTrack, shakaRef } = get()
+      if (!playerRef || !shakaRef) return console.warn('⚠️ Player not ready')
 
       let videoId = forceVideoId ?? track.defaultYtVideoId ?? track.yt?.[0]?.id
       let data: TrackWithRelations = track
@@ -40,15 +41,6 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
          }
          videoId = data.yt[0].id
 
-         // // updateTrackInQuery({ playlistId: playlistId!, masterId: track.id, data })
-         // if (!playlistId) return console.warn('⚠️ No playlistId set in store, cannot update track in query')
-         // queryClient.setQueryData(queryKey(playlistId), (p: PlaylistWithItems | undefined) => {
-         //    if (!p) return p
-         //    return create(p, (d) => {
-         //       const item = d?.playlistItems.find((i) => i.track.id === track.id)
-         //       if (item) item.track = data
-         //    })
-         // })
          set({ isYtLoading: false })
       }
 

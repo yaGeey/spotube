@@ -1,10 +1,26 @@
 import { TrackWithRelations } from '@/electron/lib/prisma'
 import { YoutubeVideo } from '@/generated/prisma/client'
-import { ProxyTRPCContextProps } from '@trpc/react-query/shared'
+import type { SabrStreamingAdapter } from 'googlevideo/sabr-streaming-adapter'
+import type shaka from 'shaka-player/dist/shaka-player.ui'
+import type Innertube from 'youtubei.js/web'
 type RandomType = null | 'true' | 'leastPlayedAllTime' | 'leastPlayedNow'
 
+export interface PlayerLoadSlice {
+   playerRef: HTMLVideoElement | null
+   shakaRef: shaka.Player | null
+   innertube: Innertube | null
+   sabrAdapter: SabrStreamingAdapter | null
+   loadVideo: (videoId: string) => Promise<void>
+   cleanup: () => void
+
+   poToken: string | null
+   coldStartToken: string | null
+   contentBinding: string | null
+   creationLock: boolean
+   mintToken: () => Promise<void>
+}
+
 export interface PlayerSlice {
-   playerRef: any
    play: ({
       track,
       forceVideoId,
@@ -21,7 +37,7 @@ export interface PlayerSlice {
    setIsPlaying: (isPlaying: boolean) => void
    playlistId: number | undefined
    setPlaylistId: (playlistId: number) => void
-   updateState: (state: Partial<PlayerSlice>) => void
+   updateState: (state: Partial<AudioStore>) => void
 }
 
 export interface TrackSlice {
@@ -45,4 +61,4 @@ export interface HistorySlice {
    setRandomType: (type: RandomType) => void
 }
 
-export type AudioStore = PlayerSlice & TrackSlice & HistorySlice
+export type AudioStore = PlayerSlice & TrackSlice & HistorySlice & PlayerLoadSlice

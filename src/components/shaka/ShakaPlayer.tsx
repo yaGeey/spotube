@@ -1,6 +1,5 @@
 import React, { Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import shaka from 'shaka-player/dist/shaka-player.ui'
-import 'shaka-player/dist/controls.css'
 import { twMerge } from 'tailwind-merge'
 import InnertubeClient, { RelatedVideo, VideoDetails } from '../../lib/InnertubeClient'
 import { useAudioStore } from '@/src/audio_store/useAudioStore'

@@ -67,9 +67,17 @@ export default function Playlist() {
                >
                   LastFM
                </Button>
+               <Button
+                  onClick={() => {
+                     if (mode === 'shaka') updateState({ mode: 'iframe' })
+                     else updateState({ mode: 'shaka' })
+                  }}
+               >
+                  change to {mode === 'shaka' ? 'iframe' : 'shaka'}
+               </Button>
             </div>
-            {/* <ShakaPlayerSlot></ShakaPlayerSlot> */}
             <div className={twMerge('aspect-video block w-full', (!isPlayerVisible || !current) && 'hidden')}>
+               {mode === 'shaka' && <ShakaPlayerSlot />}
                {mode === 'iframe' && (
                   <YouTube
                      className="w-full h-full inset-0"

@@ -11,8 +11,8 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
    updateState: (state) => set((p) => ({ ...p, ...state })),
 
    play: async ({ track, forceVideoId, skipHistory }) => {
-      const { playerRef, addToHistory, addYtVideoToTrack } = get()
-      if (!playerRef) return toast.warn('⚠️ Player not ready')
+      const { adapter, addToHistory, addYtVideoToTrack } = get()
+      if (!adapter) return toast.warn('⚠️ Player not ready')
 
       let videoId = forceVideoId ?? track.defaultYtVideoId ?? track.yt?.[0]?.id
       let data: TrackWithRelations = track
@@ -38,8 +38,8 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
       try {
          vanillaTrpc.discord.updatePresence.mutate(track)
 
-         playerRef.loadVideoById(videoId)
-         playerRef.playVideo()
+         adapter.loadVideo(videoId)
+         // adapter.play()
          if (!skipHistory) {
             addToHistory(track)
          }
@@ -52,23 +52,23 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
    },
 
    stop: () => {
-      const { playerRef } = get()
-      if (!playerRef) return console.warn('⚠️ Player not ready')
+      const { adapter } = get()
+      if (!adapter) return console.warn('⚠️ Player not ready')
       vanillaTrpc.discord.clear.mutate()
-      playerRef.stopVideo()
+      adapter.pause()
       set({ isPlaying: false })
    },
 
    toggle: () => {
-      const { playerRef, isPlaying, current } = get()
-      if (!playerRef) return
+      const { adapter, isPlaying, current } = get()
+      if (!adapter) return console.warn('⚠️ Player not ready')
       // const state = playerRef.getPlayerState()
       if (isPlaying) {
-         playerRef.pauseVideo()
+         adapter.pause()
          vanillaTrpc.discord.clear.mutate()
          set({ isPlaying: false })
       } else {
-         playerRef.playVideo()
+         adapter.play()
          if (current) vanillaTrpc.discord.updatePresence.mutate(current)
          set({ isPlaying: true })
       }

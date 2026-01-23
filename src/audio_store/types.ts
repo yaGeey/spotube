@@ -68,6 +68,7 @@ export type InitSlice = {
    adapter: BasePlayer | null
    mode: 'shaka' | 'iframe' | null
    initAdapter: () => Promise<void>
+   setMode: (mode: 'shaka' | 'iframe') => void
 
    currentTime: number
    duration: number

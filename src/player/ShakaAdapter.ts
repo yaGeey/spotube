@@ -8,6 +8,7 @@ import { getPlaybackDataFromSession, setPlaybackDataToSession } from '../utils/s
 import type Innertube from 'youtubei.js/web'
 import { SabrStreamingAdapter } from 'googlevideo/sabr-streaming-adapter'
 import { ShakaPlayerAdapter } from '../lib/ShakaPlayerAdapter'
+import { useAudioStore } from '../audio_store/useAudioStore'
 
 export default class ShakaAdapter extends BasePlayer {
    public type: string = 'shaka'
@@ -24,7 +25,6 @@ export default class ShakaAdapter extends BasePlayer {
       public shakaPlayer: shaka.Player,
    ) {
       super()
-      shaka.polyfill.installAll()
    }
 
    public static async create(videoElement: HTMLVideoElement, shakaPlayer: shaka.Player): Promise<ShakaAdapter> {
@@ -58,13 +58,8 @@ export default class ShakaAdapter extends BasePlayer {
       console.log('[Player] Loading video...', videoId)
 
       // unload previous
-      //? Token generates for each video separately
       this.contentBinding = videoId
-      this.poToken = null
-      this.coldStartToken = null
-      this.creationLock = false
-      await shakaRef.unload() //? stop buffering previous video
-      if (this.sabrAdapter) this.sabrAdapter.dispose() //? kill active network listeners
+      await this.dispose()
 
       // init SABR adapter
       const sabrAdapter = new SabrStreamingAdapter({
@@ -170,7 +165,10 @@ export default class ShakaAdapter extends BasePlayer {
    }
 
    play(): void {
-      this.instance.play()
+      this.instance.play().catch((e) => {
+         console.error('Play failed:', e)
+         confirm('Playback failed. Switch to iframe?') && useAudioStore.getState().updateState({ mode: 'iframe' })
+      })
    }
    pause(): void {
       this.instance.pause()
@@ -200,7 +198,13 @@ export default class ShakaAdapter extends BasePlayer {
       return this.instance.volume
    }
 
-   dispose(): void {
-      InnertubeClient.reset()
+   async dispose(): Promise<void> {
+      //? Token generates for each video separately
+      // this.contentBinding = videoId
+      this.poToken = null
+      this.coldStartToken = null
+      this.creationLock = false
+      await this.shakaPlayer.unload() //? stop buffering previous video
+      if (this.sabrAdapter) this.sabrAdapter.dispose() //? kill active network listeners
    }
 }

@@ -9,6 +9,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { trpc } from './utils/trpc.ts'
 import { ipcLink } from 'electron-trpc/renderer'
 import superjson from 'superjson'
+import 'react-toastify/dist/ReactToastify.css'
+import 'shaka-player/dist/controls.css'
 
 export const queryClient = new QueryClient({
    defaultOptions: {

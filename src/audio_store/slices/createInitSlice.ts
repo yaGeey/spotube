@@ -4,16 +4,18 @@ import ShakaAdapter from '@/src/player/ShakaAdapter'
 import BasePlayerAdapter from '@/src/player/BasePlayerAdapter'
 import IFrameAdapter from '@/src/player/IFrameAdapter'
 
-const getStorageValue = (key: string, def: number | boolean) => {
+const getStorageValue = (key: string, def: number | boolean | string) => {
    if (typeof window === 'undefined') return def
    const saved = localStorage.getItem(key)
    if (!saved) return def
    if (typeof def === 'boolean') return saved === '1'
-   return parseInt(saved, 10)
+   if (typeof def === 'number') return parseInt(saved, 10)
+   return saved
 }
 
 export const createInitSlice: StateCreator<AudioStore, [], [], InitSlice> = (set, get) => ({
    adapter: null,
+   // mode: getStorageValue('player-mode', 'iframe') as 'shaka' | 'iframe',
    mode: null,
 
    currentTime: 0,
@@ -22,8 +24,13 @@ export const createInitSlice: StateCreator<AudioStore, [], [], InitSlice> = (set
    isMuted: getStorageValue('player-muted', false) as boolean,
 
    initAdapter: async () => {
-      const { adapter: oldAdapter, videoElement, shakaPlayer, playerRef, updateState, mode } = get()
-      if (oldAdapter) oldAdapter.dispose()
+      const { adapter: oldAdapter, videoElement, shakaPlayer, playerRef, mode } = get()
+      if (oldAdapter) {
+         // oldAdapter.pause()
+         oldAdapter.dispose()
+         // TODO seekTo current time on new adapter
+         set({ current: null })
+      }
 
       let adapter: BasePlayerAdapter | null = null
       if (mode === 'shaka') {
@@ -39,8 +46,13 @@ export const createInitSlice: StateCreator<AudioStore, [], [], InitSlice> = (set
          const { volume, isMuted } = get()
          adapter.setVolume(volume)
          adapter.setMuted(isMuted)
-         updateState({ mode, adapter })
+         set({ mode, adapter })
       }
+   },
+
+   setMode: (mode: 'shaka' | 'iframe') => {
+      localStorage.setItem('player-mode', mode)
+      set({ mode })
    },
 
    seekTo: (time: number) => {

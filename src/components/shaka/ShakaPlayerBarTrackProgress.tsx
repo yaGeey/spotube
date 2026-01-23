@@ -8,14 +8,12 @@ export default function ShakaPlayerBarTrackProgress() {
    const time = useAudioStore((state) => state.currentTime)
    const duration = useAudioStore((state) => state.duration)
 
-   const [progress, setProgress] = useState(0)
    const STEP = 10
 
    const handleProgressChange = useCallback(
       (newProgress: number) => {
          const newTime = (newProgress / 100) * duration
          seekTo(newTime)
-         setProgress(newProgress)
       },
       [seekTo, duration],
    )
@@ -43,6 +41,7 @@ export default function ShakaPlayerBarTrackProgress() {
       return () => document.removeEventListener('keydown', handleKeyDown)
    }, [rewind])
 
+   const progress = duration ? (time / duration) * 100 : 0
    return (
       <div className="w-full flex items-center gap-2 text-xs group text-neutral-400 font-medium font-mono">
          <span>{formatDuration(time)}</span>

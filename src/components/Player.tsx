@@ -11,7 +11,7 @@ import ShakaPlayerBarTrackProgress from './shaka/ShakaPlayerBarTrackProgress'
 import PlayerBarVolume from './PlayerBarVolume'
 
 export default function Player() {
-   const { current, toggle, playerRef, isPlaying, next, back, randomType, updateState, videoRef } = useAudioStore(
+   const { current, toggle, playerRef, isPlaying, next, back, randomType, updateState, videoRef, mode } = useAudioStore(
       useShallow((state) => ({
          current: state.current,
          toggle: state.toggle,
@@ -22,6 +22,7 @@ export default function Player() {
          randomType: state.randomType,
          updateState: state.updateState,
          videoRef: state.videoElement,
+         mode: state.mode,
       })),
    )
 
@@ -135,8 +136,8 @@ export default function Player() {
                   <RepeatIcon className="w-4 h-4" />
                </button>
             </div>
-            {playerRef && <PlayerTrackProgress />}
-            {videoRef && <ShakaPlayerBarTrackProgress />}
+            {mode === 'iframe' && <PlayerTrackProgress />}
+            {mode === 'shaka' && <ShakaPlayerBarTrackProgress />}
          </div>
 
          {/* Right: Volume & Extra */}

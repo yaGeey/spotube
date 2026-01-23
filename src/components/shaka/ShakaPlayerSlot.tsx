@@ -9,7 +9,6 @@ export default function ShakaPlayerSlot() {
 
    useEffect(() => {
       if (!shakaContainer || !videoElement) return console.warn('Shaka container not found')
-      const wasPlaying = !videoElement.paused
       const currentSlot = slotRef.current
       if (currentSlot && !currentSlot.hasChildNodes()) {
          currentSlot.appendChild(shakaContainer)

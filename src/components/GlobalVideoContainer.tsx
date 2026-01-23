@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import shaka from 'shaka-player/dist/shaka-player.ui'
-import 'shaka-player/dist/controls.css'
+// import 'shaka-player/dist/controls.css'
 import { useAudioStore } from '../audio_store/useAudioStore'
 import InnertubeClient from '../lib/InnertubeClient'
 import { botguardService } from '../lib/BotguardService'
@@ -12,14 +12,15 @@ export const GlobalPlayerController = ({ ...props }: { props?: React.VideoHTMLAt
 
    const updateState = useAudioStore((state) => state.updateState)
    const next = useAudioStore((state) => state.next)
+   const mode = useAudioStore((state) => state.mode)
 
    useEffect(() => {
       const init = async () => {
          shaka.polyfill.installAll()
-         const innertube = await InnertubeClient.getInstance()
-         updateState({ innertube })
-         await botguardService.init()
-         console.log('[Player] BotGuard & Inertube loaded')
+         // const innertube = await InnertubeClient.getInstance()
+         // updateState({ innertube })
+         // await botguardService.init()
+         // console.log('[Player] BotGuard & Inertube loaded')
 
          if (videoRef.current && containerRef.current) {
             const player = new shaka.Player()
@@ -44,11 +45,12 @@ export const GlobalPlayerController = ({ ...props }: { props?: React.VideoHTMLAt
 
             console.log('[Player] Shaka UI loaded')
             updateState({ shakaPlayer: player, videoElement: videoRef.current, shakaContainer: containerRef.current })
+            useAudioStore.getState().initAdapter()
          }
       }
-      init()
+      if (mode === 'shaka') init()
       // No cleanup needed as we want the player to persist
-   }, [updateState])
+   }, [updateState, mode])
 
    useEffect(() => {
       if (bgContainerRef.current) {
@@ -72,7 +74,7 @@ export const GlobalPlayerController = ({ ...props }: { props?: React.VideoHTMLAt
                onDurationChange={(e) => updateState({ duration: e.currentTarget.duration })}
                onVolumeChange={(e) =>
                   updateState({
-                     volume: e.currentTarget.volume,
+                     volume: Math.floor(e.currentTarget.volume * 100),
                      isMuted: e.currentTarget.muted,
                   })
                }

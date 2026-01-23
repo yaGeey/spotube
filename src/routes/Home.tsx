@@ -2,6 +2,9 @@ import React from 'react'
 import Button from '../components/Button'
 import { trpc } from '../utils/trpc'
 import { MutateOptions } from '@tanstack/react-query'
+import { toastOptions } from '@/utils/toast'
+import { toast } from 'react-toastify'
+import { useAudioStore } from '../audio_store/useAudioStore'
 
 function Home() {
    const [inputValue, setInputValue] = React.useState('')
@@ -85,7 +88,29 @@ function Home() {
    }
 
    return (
-      <div>
+      <div className="space-y-2">
+         <Button
+            onClick={() => {
+               toast.dismiss()
+               toast('Succes', { autoClose: false })
+               toast.info('Info', { autoClose: false })
+               toast.success('Succes', { autoClose: false })
+               toast.error('Error', { autoClose: false })
+               toast.warn('Warn', { autoClose: false })
+               toast.dark('Dark', { autoClose: false })
+            }}
+         >
+            toasts
+         </Button>
+         <Button
+            onClick={() => {
+               // useAudioStore.getState().loadVideo('OiZVcLDhxG0') // why delay 4.8s?
+               useAudioStore.getState().loadVideo('U6rv5qi8-8s')
+            }}
+         >
+            Test global player
+         </Button>
+         <Button onClick={() => useAudioStore.getState().videoElement?.play()}>Resume play</Button>
          <ul>
             {ids.map((item) => (
                <li key={item.id} onClick={() => setIds((p) => p.filter((i) => i.id !== item.id))} className="cursor-pointer">

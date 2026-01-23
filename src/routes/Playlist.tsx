@@ -10,6 +10,7 @@ import { twMerge } from 'tailwind-merge'
 import SwitchDiv from '../components/nav/SwitchDiv'
 import TrackInfo from '../components/TrackInfo'
 import { useShallow } from 'zustand/react/shallow'
+import ShakaPlayerSlot from '../components/shaka/ShakaPlayerSlot'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -21,22 +22,21 @@ export default function Playlist() {
    const [isFullScreen, setIsFullScreen] = useState(false)
    const [selectedPanel, setSelectedPanel] = useState<'info' | 'yt'>('yt')
 
-   const { current, play, stop, setPlayerRef, setIsPlaying, tracks, next, setPlaylistId } = useAudioStore(
+   const { current, play, stop, updateState, tracks, next, mode } = useAudioStore(
       useShallow((state) => ({
          current: state.current,
          play: state.play,
          stop: state.stop,
-         setPlayerRef: state.setPlayerRef,
-         setIsPlaying: state.setIsPlaying,
+         updateState: state.updateState,
          tracks: state.tracks,
          next: state.next,
-         setPlaylistId: state.setPlaylistId,
+         mode: state.mode,
       })),
    )
 
    const [isPlayerVisible, setIsPlayerVisible] = useState(true)
    const playerRef = useRef<any>(null)
-   useEffect(() => setPlaylistId(playlistId), [setPlaylistId, playlistId])
+   useEffect(() => updateState({ playlistId }), [updateState, playlistId])
 
    const lastFMMutation = trpc.lastfm.upsertBatchFromMasterTracks.useMutation()
 
@@ -68,32 +68,35 @@ export default function Playlist() {
                   LastFM
                </Button>
             </div>
+            {/* <ShakaPlayerSlot></ShakaPlayerSlot> */}
             <div className={twMerge('aspect-video block w-full', (!isPlayerVisible || !current) && 'hidden')}>
-               <YouTube
-                  className="w-full h-full inset-0"
-                  opts={{
-                     origin: window.location.origin,
-                     height: '100%',
-                     width: '100%',
-                     // height: '1080',
-                     // width: '1920',
-                     playerVars: {
-                        autoplay: 1,
-                        mute: 0,
-                        playsinline: 1,
-                        enablejsapi: 1,
-                        controls: 0,
-                        rel: 0,
-                        iv_load_policy: 3,
-                        modestbranding: 1,
-                     },
-                  }}
-                  onReady={(event) => {
-                     playerRef.current = event.target
-                     setPlayerRef(event.target)
-                  }}
-                  onStateChange={(event) => {
-                     /**
+               {mode === 'iframe' && (
+                  <YouTube
+                     className="w-full h-full inset-0"
+                     opts={{
+                        origin: window.location.origin,
+                        height: '100%',
+                        width: '100%',
+                        // height: '1080',
+                        // width: '1920',
+                        playerVars: {
+                           autoplay: 1,
+                           mute: 0,
+                           playsinline: 1,
+                           enablejsapi: 1,
+                           controls: 0,
+                           rel: 0,
+                           iv_load_policy: 3,
+                           modestbranding: 1,
+                        },
+                     }}
+                     onReady={async (event) => {
+                        playerRef.current = event.target
+                        updateState({ playerRef: event.target })
+                        await useAudioStore.getState().initAdapter()
+                     }}
+                     onStateChange={(event) => {
+                        /**
                         -1 // UNSTARTED - відео ще не почалось
                         0  // ENDED - відео закінчилось
                         1  // PLAYING - відео грає зараз
@@ -101,15 +104,16 @@ export default function Playlist() {
                         3  // BUFFERING - відео завантажується/буферизується
                         5  // CUED - відео готове до програвання 
                      */
-                     if (event.data === 1 || event.data === 3) {
-                        const available = event.target.getAvailableQualityLevels()
-                        console.log(event.target.getPlaybackQuality(), available)
-                     }
-                  }}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnd={() => next()}
-               />
+                        if (event.data === 1 || event.data === 3) {
+                           const available = event.target.getAvailableQualityLevels()
+                           console.log(event.target.getPlaybackQuality(), available)
+                        }
+                     }}
+                     onPlay={() => updateState({ isPlaying: true })}
+                     onPause={() => updateState({ isPlaying: false })}
+                     onEnd={() => next()}
+                  />
+               )}
             </div>
             {playlist.data && <TracksTable data={playlist.data.playlistItems} playlistId={playlist.data.id} />}
          </div>

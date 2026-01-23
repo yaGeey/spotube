@@ -2,26 +2,17 @@ import { StateCreator } from 'zustand'
 import { AudioStore, PlayerSlice } from '../types'
 import { toast } from 'react-toastify'
 import { trpc, vanillaTrpc } from '@/src/utils/trpc'
-import { queryClient } from '@/src/main'
-import { create } from 'mutative'
 import { PlaylistWithItems, TrackWithRelations } from '@/electron/lib/prisma'
 
 export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = (set, get) => ({
    playerRef: null,
-   shakaRef: null,
    isPlaying: false,
-   setPlayerRef: (ref) => {
-      ref.hideVideoInfo()
-      set({ playerRef: ref })
-   },
-   setIsPlaying: (isPlaying) => set({ isPlaying }),
    playlistId: undefined,
-   setPlaylistId: (playlistId) => set({ playlistId }),
    updateState: (state) => set((p) => ({ ...p, ...state })),
 
    play: async ({ track, forceVideoId, skipHistory }) => {
-      const { playerRef, addToHistory, addYtVideoToTrack, shakaRef } = get()
-      if (!playerRef || !shakaRef) return console.warn('⚠️ Player not ready')
+      const { playerRef, addToHistory, addYtVideoToTrack } = get()
+      if (!playerRef) return toast.warn('⚠️ Player not ready')
 
       let videoId = forceVideoId ?? track.defaultYtVideoId ?? track.yt?.[0]?.id
       let data: TrackWithRelations = track
@@ -35,7 +26,7 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = 
             title: track.title,
             masterId: track.id,
          })) as TrackWithRelations
-         if (!data || !data.yt.length) return console.error('❌ No videos found')
+         if (!data || !data.yt.length) return toast.error('❌ No videos found')
          for (const video of data.yt) {
             addYtVideoToTrack({ trackId: track.id, ytPayload: video })
          }

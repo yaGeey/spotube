@@ -1,46 +1,82 @@
-// components/GlobalVideoContainer.tsx
 import React, { useEffect, useRef } from 'react'
 import shaka from 'shaka-player/dist/shaka-player.ui'
+import 'shaka-player/dist/controls.css'
 import { useAudioStore } from '../audio_store/useAudioStore'
+import InnertubeClient from '../lib/InnertubeClient'
+import { botguardService } from '../lib/BotguardService'
 
-// Експортуємо ID, щоб легко знаходити елемент (або можна через store)
-export const GLOBAL_VIDEO_ID = 'shaka-global-video'
-
-export default function GlobalVideoContainer() {
+export const GlobalPlayerController = ({ ...props }: { props?: React.VideoHTMLAttributes<HTMLVideoElement> }) => {
    const videoRef = useRef<HTMLVideoElement>(null)
    const containerRef = useRef<HTMLDivElement>(null)
-   const { setShakaPlayerInstance, setGlobalVideoElement } = useAudioStore()
+   const bgContainerRef = useRef<HTMLDivElement>(null)
+
+   const updateState = useAudioStore((state) => state.updateState)
+   const next = useAudioStore((state) => state.next)
 
    useEffect(() => {
-      // 1. Ініціалізація Shaka Player (один раз!)
-      const initPlayer = async () => {
-         const video = videoRef.current
-         const container = containerRef.current
-         if (!video || !container) return
+      const init = async () => {
+         shaka.polyfill.installAll()
+         const innertube = await InnertubeClient.getInstance()
+         updateState({ innertube })
+         await botguardService.init()
+         console.log('[Player] BotGuard & Inertube loaded')
 
-         // Зберігаємо посилання на елемент в стор, щоб інші компоненти могли його брати
-         setGlobalVideoElement(container)
+         if (videoRef.current && containerRef.current) {
+            const player = new shaka.Player()
+            await player.attach(videoRef.current)
 
-         const player = new shaka.Player(video)
-         // Налаштування ui (якщо треба)
-         // const ui = new shaka.ui.Overlay(player, container, video);
+            const ui = new shaka.ui.Overlay(player, containerRef.current, videoRef.current)
+            ui.configure({
+               addBigPlayButton: false,
+               // prettier-ignore
+               overflowMenuButtons: ['captions', 'quality', 'language', 'chapter', 'picture_in_picture', 'playback_rate', 'loop', 'toggle_stereoscopic', 'save_video_frame'],
+               customContextMenu: true,
+            })
 
-         setShakaPlayerInstance(player)
+            player.configure({
+               abr: { enabled: true },
+               streaming: {
+                  bufferingGoal: 120,
+                  rebufferingGoal: 2,
+               },
+               preferredAudioCodecs: ['opus', 'mp4a.40.2'],
+            })
+
+            console.log('[Player] Shaka UI loaded')
+            updateState({ shakaPlayer: player, videoElement: videoRef.current, shakaContainer: containerRef.current })
+         }
       }
+      init()
+      // No cleanup needed as we want the player to persist
+   }, [updateState])
 
-      initPlayer()
-   }, [])
+   useEffect(() => {
+      if (bgContainerRef.current) {
+         updateState({ bgContainer: bgContainerRef.current })
+      }
+   }, [updateState])
 
    return (
-      // Цей div буде "домом" для відео, коли воно не на сторінці
-      <div
-         id="hidden-player-garage"
-         className="fixed bottom-0 right-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden"
-         // АБО стилізуйте його тут як PiP (Picture in Picture), коли він не на сторінці
-      >
-         {/* Це контейнер, який ми будемо переміщувати */}
-         <div ref={containerRef} className="w-full h-full bg-black" id="movable-video-wrapper">
-            <video ref={videoRef} id={GLOBAL_VIDEO_ID} className="w-full h-full" autoPlay playsInline />
+      <div style={{ display: 'none' }} ref={bgContainerRef}>
+         <div ref={containerRef} className="relative w-full aspect-video bg-black group overflow-hidden">
+            <video
+               ref={videoRef}
+               className="w-full h-full"
+               autoPlay
+               crossOrigin="anonymous"
+               {...props}
+               onPlay={() => updateState({ isPlaying: true })}
+               onPause={() => updateState({ isPlaying: false })}
+               onEnded={() => next()}
+               onTimeUpdate={(e) => updateState({ currentTime: e.currentTarget.currentTime })}
+               onDurationChange={(e) => updateState({ duration: e.currentTarget.duration })}
+               onVolumeChange={(e) =>
+                  updateState({
+                     volume: e.currentTarget.volume,
+                     isMuted: e.currentTarget.muted,
+                  })
+               }
+            />
          </div>
       </div>
    )

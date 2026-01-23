@@ -12,7 +12,7 @@ export default function Button({ onClick, ref, className, textClassName, childre
          ref={ref}
          {...props}
          className={tw(
-            'text-white px-3 py-0 text-nowrap bg-accent border-2 border-pink-400 rounded-lg flex justify-center items-center gap-1 hover:shadow-md transition-all hover:brightness-110 disabled:brightness-75 active:brightness-90',
+            'text-white text-sm px-3 py-0 text-nowrap bg-accent border-2 border-pink-400 rounded-lg flex justify-center items-center gap-1 hover:shadow-md transition-all hover:brightness-110 disabled:brightness-75 active:brightness-90',
             className,
          )}
       >

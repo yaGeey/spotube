@@ -8,7 +8,6 @@ export const createHistorySlice: StateCreator<AudioStore, [], [], HistorySlice> 
    currentIndexAtHistory: -1,
    // TODO implement all random types
    randomType: null,
-   setRandomType: (type) => set({ randomType: type }),
 
    back: () => {
       const { history, play, currentIndexAtHistory } = get()

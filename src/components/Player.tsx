@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import PlayerTrackProgress from './PlayerTrackProgress'
-import PlayerVolume from './PlayerVolume'
+import PlayerVolume from './PlayerBarVolume'
 // prettier-ignore
 import { MusicIcon, HeartIcon, ShuffleIcon, SkipBackIcon, PauseIcon, PlayIcon, SkipForwardIcon, RepeatIcon, Mic2Icon, ListMusicIcon, MonitorSpeakerIcon } from './Icons'
 import { twMerge } from 'tailwind-merge'
 import { vanillaTrpc } from '../utils/trpc'
 import { useShallow } from 'zustand/react/shallow'
+import ShakaPlayerBarTrackProgress from './shaka/ShakaPlayerBarTrackProgress'
+import PlayerBarVolume from './PlayerBarVolume'
 
 export default function Player() {
-   const { current, toggle, playerRef, isPlaying, next, back, randomType, setRandomType } = useAudioStore(
+   const { current, toggle, playerRef, isPlaying, next, back, randomType, updateState, videoRef } = useAudioStore(
       useShallow((state) => ({
          current: state.current,
          toggle: state.toggle,
@@ -18,7 +20,8 @@ export default function Player() {
          next: state.next,
          back: state.back,
          randomType: state.randomType,
-         setRandomType: state.setRandomType,
+         updateState: state.updateState,
+         videoRef: state.videoElement,
       })),
    )
 
@@ -41,7 +44,7 @@ export default function Player() {
 
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
-   }, [toggle, next, back, playerRef])
+   }, [toggle, next, back])
 
    // block page scrolling when hovering over the player
    const containerRef = useRef<HTMLDivElement>(null)
@@ -54,7 +57,7 @@ export default function Player() {
       return () => element.removeEventListener('wheel', handleWheel)
    }, [current, playerRef])
 
-   if (!current || !playerRef) return null
+   if (!current || (!playerRef && !videoRef)) return null
    return (
       <div
          className="fixed bottom-0 left-0 right-0 bg-main backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between text-white h-[90px] z-50"
@@ -107,7 +110,7 @@ export default function Player() {
                <button
                   className={twMerge('text-text-subtle hover:text-text transition-colors', randomType && 'text-accent')}
                   title="Shuffle"
-                  onClick={() => setRandomType(randomType === 'true' ? null : 'true')}
+                  onClick={() => updateState({ randomType: randomType === 'true' ? null : 'true' })}
                >
                   <span className="text-[10px]">{randomType}</span>
                   <ShuffleIcon className="w-4 h-4" />
@@ -132,7 +135,8 @@ export default function Player() {
                   <RepeatIcon className="w-4 h-4" />
                </button>
             </div>
-            <PlayerTrackProgress />
+            {playerRef && <PlayerTrackProgress />}
+            {videoRef && <ShakaPlayerBarTrackProgress />}
          </div>
 
          {/* Right: Volume & Extra */}
@@ -146,7 +150,9 @@ export default function Player() {
             <button className="text-text-subtle hover:text-text transition-colors size-4">
                <MonitorSpeakerIcon className="w-4 h-4" />
             </button>
-            <PlayerVolume />
+            {/* {playerRef && <PlayerVolume />} */}
+            {/* {videoRef && <ShakaPlayerBarVolume />} */}
+            <PlayerBarVolume />
          </div>
       </div>
    )

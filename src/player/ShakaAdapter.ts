@@ -1,28 +1,45 @@
-import { StateCreator } from 'zustand'
-import { AudioStore, PlayerLoadSlice } from '../types'
-import { SabrStreamingAdapter } from 'googlevideo/sabr-streaming-adapter'
-import { ShakaPlayerAdapter } from '@/src/lib/ShakaPlayerAdapter'
-import InnertubeClient from '@/src/lib/InnertubeClient'
-import { CachedVideoData, getPlaybackDataFromSession, setPlaybackDataToSession } from '@/src/utils/session'
+import { CachedVideoData } from '../utils/session'
+import BasePlayer from './BasePlayerAdapter'
+import shaka from 'shaka-player/dist/shaka-player.ui'
+import InnertubeClient from '../lib/InnertubeClient'
 import { buildSabrFormat } from 'googlevideo/utils'
-import { botguardService } from '@/src/lib/BotguardService'
+import { botguardService } from '../lib/BotguardService'
+import { getPlaybackDataFromSession, setPlaybackDataToSession } from '../utils/session'
+import type Innertube from 'youtubei.js/web'
+import { SabrStreamingAdapter } from 'googlevideo/sabr-streaming-adapter'
+import { ShakaPlayerAdapter } from '../lib/ShakaPlayerAdapter'
 
-export const createPlayerLoadSlice: StateCreator<AudioStore, [], [], PlayerLoadSlice> = (set, get) => ({
-   videoElement: null,
-   shakaPlayer: null,
-   shakaContainer: null,
-   innertube: null,
-   sabrAdapter: null,
-   bgContainer: null,
+export default class ShakaAdapter extends BasePlayer {
+   public type: string = 'shaka'
+   private poToken: string | null = null
+   private coldStartToken: string | null = null
+   private contentBinding: string | null = null
+   private creationLock: boolean = false
 
-   poToken: null,
-   coldStartToken: null,
-   contentBinding: null,
-   creationLock: false,
+   private innertube: Innertube | null = null
+   private sabrAdapter: SabrStreamingAdapter | null = null
 
-   loadVideo: async (videoId: string) => {
-      const { shakaPlayer: shakaRef, innertube: yt, sabrAdapter: oldAdapter, updateState } = get()
-      if (!shakaRef || !yt) return console.error('[Store] Player or Innertube not initialized')
+   private constructor(
+      public instance: HTMLVideoElement,
+      public shakaPlayer: shaka.Player,
+   ) {
+      super()
+      shaka.polyfill.installAll()
+   }
+
+   public static async create(videoElement: HTMLVideoElement, shakaPlayer: shaka.Player): Promise<ShakaAdapter> {
+      const adapter = new ShakaAdapter(videoElement, shakaPlayer)
+      adapter.innertube = await InnertubeClient.getInstance()
+      await botguardService.init()
+      console.log('[Player] BotGuard & Inertube loaded')
+      return adapter
+   }
+
+   async loadVideo(videoId: string): Promise<void> {
+      const yt = this.innertube
+      if (!yt) throw new Error('Innertube not initialized')
+
+      const shakaRef = this.shakaPlayer
 
       const playbackStorage: Partial<CachedVideoData> = {}
 
@@ -42,14 +59,12 @@ export const createPlayerLoadSlice: StateCreator<AudioStore, [], [], PlayerLoadS
 
       // unload previous
       //? Token generates for each video separately
-      updateState({
-         contentBinding: videoId,
-         poToken: null,
-         coldStartToken: null,
-         creationLock: false,
-      })
+      this.contentBinding = videoId
+      this.poToken = null
+      this.coldStartToken = null
+      this.creationLock = false
       await shakaRef.unload() //? stop buffering previous video
-      if (oldAdapter) oldAdapter.dispose() //? kill active network listeners
+      if (this.sabrAdapter) this.sabrAdapter.dispose() //? kill active network listeners
 
       // init SABR adapter
       const sabrAdapter = new SabrStreamingAdapter({
@@ -64,9 +79,8 @@ export const createPlayerLoadSlice: StateCreator<AudioStore, [], [], PlayerLoadS
 
       sabrAdapter.onMintPoToken(async () => {
          // Беремо актуальні токени зі стору на момент виклику
-         const state = get()
-         if (!state.poToken) await state.mintToken()
-         return get().poToken || get().coldStartToken || ''
+         if (!this.poToken) await this.mintToken()
+         return this.poToken || this.coldStartToken || ''
       })
 
       // reload videos (for 6+ hours long videos, when URL expires)
@@ -76,20 +90,22 @@ export const createPlayerLoadSlice: StateCreator<AudioStore, [], [], PlayerLoadS
 
          const parsedInfo = await InnertubeClient.getReloadedVideoStreamInfo(videoId, reloadContext)
          sabrAdapter.setStreamingURL(await decipherUrlAndAddToStorageObject(parsedInfo.streaming_data?.server_abr_streaming_url))
-         const ustreamerConfig =
-            videoInfo.player_config?.media_common_config?.media_ustreamer_request_config?.video_playback_ustreamer_config
+         const ustreamerConfig = playbackStorage.ustreamerConfig
+         // videoInfo.player_config?.media_common_config?.media_ustreamer_request_config?.video_playback_ustreamer_config
          if (!ustreamerConfig) return
          sabrAdapter.setUstreamerConfig(ustreamerConfig)
          playbackStorage.ustreamerConfig = ustreamerConfig
       })
 
       sabrAdapter.attach(shakaRef)
-      updateState({ sabrAdapter })
+      this.sabrAdapter = sabrAdapter
 
       // check storage for cached data
       const cachedData = getPlaybackDataFromSession(videoId)
       if (cachedData) {
          console.log('[SABR] Using cached playback data from session storage')
+         // FIX: Наповнюємо playbackStorage даними з кешу, щоб Reload мав до них доступ
+         Object.assign(playbackStorage, cachedData)
          sabrAdapter.setStreamingURL(cachedData.streamingUrl)
          sabrAdapter.setServerAbrFormats(cachedData.formats)
          sabrAdapter.setUstreamerConfig(cachedData.ustreamerConfig)
@@ -134,37 +150,57 @@ export const createPlayerLoadSlice: StateCreator<AudioStore, [], [], PlayerLoadS
       console.log('[Player] Manifest loaded')
 
       setPlaybackDataToSession(videoId, playbackStorage)
-   },
+   }
 
-   mintToken: async () => {
-      const { contentBinding, creationLock, updateState } = get()
-      if (!contentBinding || creationLock) return
-
-      updateState({ creationLock: true })
+   private async mintToken(): Promise<void> {
+      if (!this.contentBinding || this.creationLock) return
+      this.creationLock = true
       try {
-         updateState({ coldStartToken: botguardService.mintColdStartToken(contentBinding) })
+         this.coldStartToken = botguardService.mintColdStartToken(this.contentBinding)
          if (!botguardService.isInitialized()) await botguardService.reinit()
 
          if (botguardService.integrityTokenBasedMinter) {
-            const poToken = await botguardService.integrityTokenBasedMinter.mintAsWebsafeString(
-               decodeURIComponent(contentBinding),
+            this.poToken = await botguardService.integrityTokenBasedMinter.mintAsWebsafeString(
+               decodeURIComponent(this.contentBinding),
             )
-            updateState({ poToken })
          }
       } finally {
-         updateState({ creationLock: false })
+         this.creationLock = false
       }
-   },
+   }
 
-   cleanup: () => {
-      const { sabrAdapter, shakaPlayer: shakaRef, updateState } = get()
-      if (sabrAdapter) {
-         sabrAdapter.dispose()
-         updateState({ sabrAdapter: null })
-      }
-      if (shakaRef) {
-         shakaRef.unload()
-         updateState({ shakaPlayer: null })
-      }
-   },
-})
+   play(): void {
+      this.instance.play()
+   }
+   pause(): void {
+      this.instance.pause()
+   }
+   requestFullscreen(): void {
+      this.instance.requestFullscreen()
+   }
+   seekTo(seconds: number): void {
+      this.instance.currentTime = seconds
+   }
+   getCurrentTime(): number {
+      return this.instance.currentTime
+   }
+   getDuration(): number {
+      return this.instance.duration
+   }
+   setMuted(value: boolean): void {
+      this.instance.muted = value
+   }
+   isMuted(): boolean {
+      return this.instance.muted
+   }
+   setVolume(volume: number): void {
+      this.instance.volume = volume / 100
+   }
+   getVolume(): number {
+      return this.instance.volume
+   }
+
+   dispose(): void {
+      InnertubeClient.reset()
+   }
+}

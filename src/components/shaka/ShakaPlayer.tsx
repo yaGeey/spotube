@@ -1,19 +1,10 @@
 import React, { Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import shaka from 'shaka-player/dist/shaka-player.ui'
 import 'shaka-player/dist/controls.css'
-import { Innertube, UniversalCache, Utils, YT, Platform, Types, Constants } from 'youtubei.js/web'
-import { SabrStreamingAdapter } from 'googlevideo/sabr-streaming-adapter'
-import { botguardService } from '../lib/BotguardService'
-import { ShakaPlayerAdapter } from '../lib/ShakaPlayerAdapter'
-import { buildSabrFormat } from 'googlevideo/utils'
-import { fetchFunction } from '../lib/helpers'
-import Button from './Button'
-import { CachedVideoData, getPlaybackDataFromSession, setPlaybackDataToSession } from '../utils/session'
-import { pl } from 'zod/v4/locales'
 import { twMerge } from 'tailwind-merge'
-import InnertubeClient, { RelatedVideo, VideoDetails } from '../lib/InnertubeClient'
-import YtVideoCardsNative from './YTVideoCardsNative'
-import { useAudioStore } from '../audio_store/useAudioStore'
+import InnertubeClient, { RelatedVideo, VideoDetails } from '../../lib/InnertubeClient'
+import { useAudioStore } from '@/src/audio_store/useAudioStore'
+import { botguardService } from '@/src/lib/BotguardService'
 
 export default function ShakaPlayer({
    videoId,
@@ -28,6 +19,7 @@ export default function ShakaPlayer({
    const updateState = useAudioStore((state) => state.updateState)
    const isPlaying = useAudioStore((state) => state.isPlaying)
    const cleanup = useAudioStore((state) => state.cleanup)
+   const next = useAudioStore((state) => state.next)
 
    // Services Initialization
    useEffect(() => {
@@ -35,12 +27,10 @@ export default function ShakaPlayer({
          try {
             shaka.polyfill.installAll()
 
-            // init Innertube
             const innertube = await InnertubeClient.getInstance()
             updateState({ innertube })
             console.log('[Player] Innertube loaded')
 
-            // init BotGuard
             await botguardService.init()
             console.log('[Player] BotGuard loaded')
 
@@ -77,7 +67,7 @@ export default function ShakaPlayer({
 
                console.log('[Player] Shaka UI loaded')
                setIsReady(true)
-               updateState({ shakaRef: player, playerRef: videoRef.current })
+               updateState({ shakaPlayer: player, videoElement: videoRef.current })
 
                const { relatedVideos, details } = await InnertubeClient.getVideoInfo(videoId)
                setVideosInfo({ relatedVideos, details })
@@ -129,14 +119,17 @@ export default function ShakaPlayer({
                {...props}
                onPlay={() => updateState({ isPlaying: true })}
                onPause={() => updateState({ isPlaying: false })}
-               onTimeUpdate={(e) => {
-                  const currentSeconds = e.currentTarget.currentTime
-                  const totalDuration = e.currentTarget.duration
-                  console.log(`Позиція: ${currentSeconds.toFixed(2)} / ${totalDuration}`)
-               }}
+               onEnded={() => next()}
+               onTimeUpdate={(e) => updateState({ currentTime: e.currentTarget.currentTime })}
+               onDurationChange={(e) => updateState({ duration: e.currentTarget.duration })}
+               onVolumeChange={(e) =>
+                  updateState({
+                     volume: e.currentTarget.volume,
+                     isMuted: e.currentTarget.muted,
+                  })
+               }
             />
          </div>
-         <div className="w-[300px]">{videosInfo && <YtVideoCardsNative videos={videosInfo.relatedVideos} />}</div>
       </div>
    )
 }

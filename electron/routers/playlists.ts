@@ -28,16 +28,4 @@ export const playlistsRouter = router({
          })
          return newPlaylist
       }),
-
-   createCombined: publicProcedure
-      .input(z.object({ title: z.string(), description: z.string().optional(), playlistIds: z.array(z.number()) }))
-      .mutation(async ({ input }) => {
-         return await prisma.combinedPlaylist.create({
-            data: {
-               title: input.title,
-               description: input.description,
-               playlists: { connect: input.playlistIds.map((id) => ({ id })) },
-            },
-         })
-      }),
 })

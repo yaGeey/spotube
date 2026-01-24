@@ -7,12 +7,14 @@ import { tracksRouter } from './routers/tracks'
 import { lastFMRouter } from './routers/lastfm'
 import { systemRouter } from './routers/system'
 import geniusRouter from './routers/genius'
+import { combinedPlaylistsRouter } from './routers/combinedPlaylists'
 // import { ytStreamsRouter } from './routers/ytStreams'
 
 export const appRouter = router({
    system: systemRouter,
    tracks: tracksRouter,
    playlists: playlistsRouter,
+   combinedPlaylists: combinedPlaylistsRouter,
 
    discord: discordRpcRouter,
    spotify: spotifyRouter,

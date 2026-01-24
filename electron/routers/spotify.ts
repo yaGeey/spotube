@@ -14,24 +14,27 @@ export const spotifyRouter = router({
          const accessToken = await getSpotifyToken().then((res) => res?.access_token)
          if (!accessToken) throw new Error('No Spotify access token available')
 
+         // lightweight fetch to check for snapshot_id
+         const { data: minimalMeta } = await api.get<SpotifyApi.SinglePlaylistResponse>(
+            `https://api.spotify.com/v1/playlists/${playlistId}?fields=id,snapshot_id,name,description,images,external_urls`,
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+         )
+
+         // check for existing and return
+         const existingPlaylist = await prisma.playlist.findUnique({
+            where: { spotifyMetadataId: minimalMeta.id },
+            include: playlistWithDeepRelations,
+         })
+         if (existingPlaylist?.spotifyMetadata?.snapshotId === minimalMeta.snapshot_id) {
+            return existingPlaylist
+         }
+         console.log(chalk.blue(`Playlist outdated or new. Syncing...`))
+
          // fetch playlist with metadata
          const { data: playlistRes } = await api.get<SpotifyApi.SinglePlaylistResponse>(
             `https://api.spotify.com/v1/playlists/${playlistId}`,
-            {
-               headers: { Authorization: `Bearer ${accessToken}` },
-            },
+            { headers: { Authorization: `Bearer ${accessToken}` } },
          )
-
-         // check for existing playlist and snapshot
-         const existingPlaylist = await prisma.playlist.findFirst({
-            where: {
-               spotifyMetadataId: playlistRes.id,
-            },
-            include: playlistWithDeepRelations,
-         })
-         if (existingPlaylist?.spotifyMetadata?.snapshotId === playlistRes.snapshot_id) {
-            return existingPlaylist
-         }
 
          // upsert playlist
          const prismaPlaylist = await prisma.playlist.upsert({

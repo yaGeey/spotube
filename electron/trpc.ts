@@ -14,7 +14,7 @@ const t = initTRPC.create({
 const loggingMiddleware = t.middleware(async ({ path, type, next }) => {
    const isDiscord = path.startsWith('discord')
    const start = Date.now()
-   if (!isDiscord) console.log(chalk.gray(`-> [${type}] ${path}}`))
+   if (!isDiscord) console.log(chalk.gray(`-> [${type}] ${path}`))
 
    const result = await next()
    const duration = Date.now() - start

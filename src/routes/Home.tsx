@@ -13,7 +13,7 @@ function Home() {
    const spotifyPlaylist = trpc.spotify.upsertPlaylistWithTracks.useMutation()
    const ytPlaylist = trpc.yt.upsertPlaylistWithTracks.useMutation()
    const ytFromSpotify = trpc.yt.addVideosToMasterFromSpotifyBatch.useMutation()
-   const createCombined = trpc.playlists.createCombined.useMutation()
+   const createCombined = trpc.combinedPlaylists.create.useMutation()
 
    const mutationOptions = {
       onSuccess: () => {
@@ -82,10 +82,15 @@ function Home() {
                title: 'Combined Playlist',
                playlistIds: responses.map((r) => r.id),
             },
-            mutationOptions,
+            {
+               onSuccess: () => {
+                  utils.combinedPlaylists.getAll.refetch()
+               },
+            },
          )
       }
    }
+   const errMesage = spotifyPlaylist.error?.message || ytPlaylist.error?.message || createCombined.error?.message
 
    return (
       <div className="space-y-2">
@@ -127,8 +132,7 @@ function Home() {
          />
          <Button onClick={handleCreatePlaylist}>Create {ids.length > 1 ? 'COMBINED' : ''} playlist</Button>
 
-         {spotifyPlaylist.error && <div>{spotifyPlaylist.error.message}</div>}
-         {ytPlaylist.error && <div>{ytPlaylist.error.message}</div>}
+         {errMesage && <div>{errMesage}</div>}
       </div>
    )
 }

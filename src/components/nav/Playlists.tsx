@@ -8,6 +8,7 @@ import { MusicIcon } from '../Icons'
 const Playlists = () => {
    const clearHistory = useAudioStore((state) => state.clearHistory)
    const playlists = trpc.playlists.getAll.useQuery()
+   const combPlaylists = trpc.combinedPlaylists.getAll.useQuery() 
    const deleteSpotifyPlaylist = trpc.spotify.deletePlaylist.useMutation()
    const deleteYoutubePlaylist = trpc.yt.deletePlaylist.useMutation()
 
@@ -27,6 +28,22 @@ const Playlists = () => {
                         else if (pl.origin === 'YOUTUBE') deleteYoutubePlaylist.mutate(pl.youtubeMetadataId!)
                      }
                   }}
+               >
+                  {pl.title}
+                  {pl.thumbnailUrl ? (
+                     <img src={pl.thumbnailUrl} width={56} height={56} alt={pl.title} />
+                  ) : (
+                     <MusicIcon className="w-6 h-6" />
+                  )}
+               </NavLink>
+            ))}
+            
+            {combPlaylists.data?.map((pl) => (
+               <NavLink
+                  to={`/${pl.id}?combined=true`}
+                  key={pl.id+'comb'}
+                  className={({ isActive }) => twMerge('hover:text-accent', isActive && 'text-accent')}
+                  onClick={() => clearHistory()}
                >
                   {pl.title}
                   {pl.thumbnailUrl ? (

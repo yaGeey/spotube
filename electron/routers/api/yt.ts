@@ -1,15 +1,15 @@
-import { publicProcedure, router } from '../trpc'
+import { publicProcedure, router } from '../../trpc'
 import { google, youtube_v3 } from 'googleapis'
 import chalk from 'chalk'
 import { parseRelative } from '@/src/utils/time'
-import prisma, { playlistWithDeepRelations, PlaylistWithItems, TrackWithRelations, trackWithRelations } from '../lib/prisma'
+import prisma, { playlistWithDeepRelations, PlaylistWithItems, TrackWithRelations, trackWithRelations } from '../../lib/prisma'
 import { LastFM, MasterTrack, Prisma } from '@/generated/prisma/client'
 import { Client, MusicClient } from 'youtubei'
 import z from 'zod'
 import pLimit from 'p-limit'
 import pRetry from 'p-retry'
 import { extractTrackInfo, extractTrackInfoStrict } from '@/utils/videoTitle'
-import { extractArtistsAndTitle } from '../lib/ai'
+import { extractArtistsAndTitle } from '../../lib/ai'
 import Innertube, { UniversalCache, ClientType, Platform, Types } from 'youtubei.js'
 const limit = pLimit(2)
 

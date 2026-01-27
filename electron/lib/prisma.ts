@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 import { Prisma, PrismaClient } from '@/generated/prisma/client'
+import chalk from 'chalk'
 
 const connectionString = `${process.env.DATABASE_URL}`
 
@@ -44,3 +45,23 @@ export type PlaylistItemWithRelations = Prisma.PlaylistItemGetPayload<{
       }
    }
 }>
+
+export const cleanOrpanedMasterTracks = async (tracksIds: number[]) => {
+   const orphanedTracks = await prisma.masterTrack.findMany({
+      where: {
+         id: { in: tracksIds },
+         playlistItems: { none: {} }, // Жодного запису в playlistItems
+      },
+      select: { id: true },
+   })
+
+   if (orphanedTracks.length > 0) {
+      await prisma.masterTrack.deleteMany({
+         where: {
+            id: { in: orphanedTracks.map((t) => t.id) },
+         },
+      })
+      console.log(chalk.gray(`Cleaned up ${orphanedTracks.length} orphaned MasterTracks`))
+   }
+
+}

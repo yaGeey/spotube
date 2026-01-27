@@ -1,9 +1,9 @@
 import z from 'zod'
-import { getLastFMAlbum, getLastFMArtist, getLastFMTrack, upsertLastFMEntry } from '../lib/lastfm'
-import { publicProcedure, router } from '../trpc'
+import { getLastFMAlbum, getLastFMArtist, getLastFMTrack, upsertLastFMEntry } from '../../lib/lastfm'
+import { publicProcedure, router } from '../../trpc'
 import pLimit from 'p-limit'
 import chalk from 'chalk'
-import prisma, { TrackWithRelations } from '../lib/prisma'
+import prisma, { TrackWithRelations } from '../../lib/prisma'
 import { LastFM, Prisma } from '@/generated/prisma/client'
 const limit = pLimit(10)
 

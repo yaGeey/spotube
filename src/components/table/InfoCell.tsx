@@ -6,6 +6,7 @@ import { useContext } from 'react'
 import { TableFiltersContext } from './TableContext'
 import { PlaylistItemWithRelations } from '@/electron/lib/prisma'
 import { CellContext } from '@tanstack/react-table'
+import { useNavigate } from 'react-router-dom'
 
 export default function InfoCell({
    userScripts,
@@ -14,6 +15,7 @@ export default function InfoCell({
    userScripts: string[]
    info: CellContext<PlaylistItemWithRelations, unknown>
 }) {
+   const navigate = useNavigate()
    const current = useAudioStore((state) => state.current)
 
    const t = info.row.original.track
@@ -73,11 +75,14 @@ export default function InfoCell({
                            <span
                               onClick={(e) => {
                                  e.stopPropagation()
-                                 if (isActive) {
-                                    const newFilter = filterValue?.filter((p) => p !== a.name && p !== a.latinName)
-                                    info.column.setFilterValue(newFilter)
-                                 } else {
-                                    info.column.setFilterValue([...(filterValue ?? []), a.name])
+                                 if (e.ctrlKey) navigate(`/spotify/artist?id=${a.spotifyId}`)
+                                 else {
+                                    if (isActive) {
+                                       const newFilter = filterValue?.filter((p) => p !== a.name && p !== a.latinName)
+                                       info.column.setFilterValue(newFilter)
+                                    } else {
+                                       info.column.setFilterValue([...(filterValue ?? []), a.name])
+                                    }
                                  }
                               }}
                               className={twMerge(

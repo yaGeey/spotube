@@ -56,6 +56,9 @@ export default function TrackInfo({ data }: { data: TrackWithRelations }) {
                                  <span
                                     key={sim.name}
                                     className="text-sm text-text hover:text-purple-300 transition-colors cursor-default"
+                                    onClick={(e) => {
+                                       if (e.ctrlKey) vanillaTrpc.system.openExternalLink.mutate(sim.url)
+                                    }}
                                  >
                                     {sim.name}
                                  </span>

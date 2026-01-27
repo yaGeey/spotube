@@ -48,7 +48,7 @@ model YoutubeVideo {
   id           String   @id
   title        String
   author       String
-  // authorId     String // TODO on Author object
+  authorId     String? // TODO on Author object || Need to be not null, but for existing data migration it's nullable
   duration     Int // seconds
   views        Int
   publishedAt  DateTime

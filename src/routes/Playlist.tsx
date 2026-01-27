@@ -1,9 +1,9 @@
-import { use, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import YouTube from 'react-youtube'
 import { useAudioStore } from '../audio_store/useAudioStore'
 import Button from '../components/Button'
 import YtVideoCards from '../components/YtVideoCards'
-import { trpc, vanillaTrpc } from '../utils/trpc'
+import { trpc } from '../utils/trpc'
 import TracksTable from '../components/table/Table'
 import { useLocation, useParams } from 'react-router-dom'
 import { twMerge } from 'tailwind-merge'
@@ -11,8 +11,11 @@ import SwitchDiv from '../components/nav/SwitchDiv'
 import TrackInfo from '../components/TrackInfo'
 import { useShallow } from 'zustand/react/shallow'
 import ShakaPlayerSlot from '../components/shaka/ShakaPlayerSlot'
-import { CombinedPlaylist, Prisma } from '@/generated/prisma/client'
+import { Prisma, YoutubeVideo } from '@/generated/prisma/client'
 import { playlistWithDeepRelations } from '@/electron/lib/prisma'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core'
+import TableDropZone from '../components/table/DropZone'
+import DndAddYtContext from '../components/DndAddYtContext'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -48,18 +51,12 @@ export default function Playlist() {
 
    // mutations and queries
    const utils = trpc.useUtils()
-   const lastFMMutation = trpc.lastfm.upsertBatchFromMasterTracks.useMutation({
-      onSuccess: () => {
-         utils.playlists.getById.invalidate(playlistId)
-         utils.combinedPlaylists.getById.invalidate(playlistId)
-      },
-   })
-   const syncSpotifyMutation = trpc.spotify.upsertPlaylistWithTracks.useMutation({
-      onSuccess: () => {
-         utils.playlists.getById.invalidate(playlistId)
-         utils.combinedPlaylists.getById.invalidate(playlistId)
-      },
-   })
+   const onSuccess = () => {
+      utils.playlists.getById.invalidate(playlistId)
+      utils.combinedPlaylists.getById.invalidate(playlistId)
+   }
+   const lastFMMutation = trpc.lastfm.upsertBatchFromMasterTracks.useMutation({ onSuccess })
+   const syncSpotifyMutation = trpc.spotify.upsertPlaylistWithTracks.useMutation({ onSuccess })
 
    // TODO fetch only one
    const playlistRes = trpc.playlists.getById.useQuery(playlistId)
@@ -98,8 +95,9 @@ export default function Playlist() {
    )
 
    const isSingle = combinedPlaylist?.playlists.length === 1
-   const isPureYt = isSingle && combinedPlaylist.playlists[0].origin === 'YOUTUBE'
-   const isPureSpotify = isSingle && combinedPlaylist.playlists[0].origin === 'SPOTIFY'
+   const isYt = isSingle && combinedPlaylist.playlists[0].origin === 'YOUTUBE'
+   const isSpotify = isSingle && combinedPlaylist.playlists[0].origin === 'SPOTIFY'
+   const isLocal = isSingle && combinedPlaylist.playlists[0].origin === 'LOCAL'
 
    // check for spotify playlist updates
    const checkedPlaylistsRef = useRef(new Set<string>())
@@ -127,7 +125,7 @@ export default function Playlist() {
 
    if (!combinedPlaylist) return <div>Loading...</div>
    return (
-      <div>
+      <DndAddYtContext plId={playlistId} enabled={isLocal}>
          <div className="p-3 w-full">
             <div>
                <div className="flex gap-2">
@@ -210,13 +208,17 @@ export default function Playlist() {
                   />
                )}
             </div>
-            {items && <TracksTable data={items} />}
+            {items && (
+               <TableDropZone>
+                  <TracksTable data={items} playlistId={playlistId}/>
+               </TableDropZone>
+            )}
          </div>
          <div className="fixed right-0 top-[30px] bottom-[90px] w-[320px]">
-            {!isPureYt && <SwitchDiv value={selectedPanel} setValue={setSelectedPanel} />}
+            {!isYt && <SwitchDiv value={selectedPanel} setValue={setSelectedPanel} />}
             {selectedPanel === 'yt' && <YtVideoCards />}
-            {(selectedPanel === 'info' || isPureYt) && current && <TrackInfo data={current} />}
+            {(selectedPanel === 'info' || isYt) && current && <TrackInfo data={current} />}
          </div>
-      </div>
+      </DndAddYtContext>
    )
 }

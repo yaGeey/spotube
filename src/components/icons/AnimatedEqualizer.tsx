@@ -1,5 +1,8 @@
 import './AnimatedEqualizer.css'
-export default function AnimatedEqualizer() {
+export default function AnimatedEqualizer({ isPlaying }: { isPlaying: boolean }) {
+   const animStyle = {
+      animationPlayState: isPlaying ? 'running' : 'paused',
+   }
    return (
       <svg
          id="equalizer"
@@ -18,6 +21,7 @@ export default function AnimatedEqualizer() {
                y="5"
                width="1"
                height="2px"
+               style={animStyle}
             ></rect>
             <rect
                id="bar2"
@@ -26,6 +30,7 @@ export default function AnimatedEqualizer() {
                y="2"
                width="1"
                height="5"
+               style={animStyle}
             ></rect>
             <rect
                id="bar3"
@@ -34,6 +39,7 @@ export default function AnimatedEqualizer() {
                y="0"
                width="1"
                height="7"
+               style={animStyle}
             ></rect>
             <rect
                id="bar4"
@@ -42,6 +48,7 @@ export default function AnimatedEqualizer() {
                y="3"
                width="1"
                height="4"
+               style={animStyle}
             ></rect>
          </g>
       </svg>

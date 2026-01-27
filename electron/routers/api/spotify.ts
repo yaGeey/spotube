@@ -1,11 +1,15 @@
 import z from 'zod'
-import { publicProcedure, router } from '../trpc'
-import { getSpotifyToken, searchSpotify } from '../lib/spotify'
-import api from '../lib/axios'
-import prisma, { playlistWithDeepRelations, PlaylistWithItems } from '../lib/prisma'
+import { publicProcedure, router } from '../../trpc'
+import { getSpotifyToken, searchSpotify } from '../../lib/spotify'
+import api from '../../lib/axios'
+import prisma, { playlistWithDeepRelations, PlaylistWithItems } from '../../lib/prisma'
 import chalk from 'chalk'
 import { PlaylistItem, Prisma } from '@/generated/prisma/client'
 import { chunkArray } from '@/utils/arrays'
+import { Album, Artist, Page, SimplifiedAlbum, SimplifiedTrack, SpotifyApi } from '@spotify/web-api-ts-sdk'
+
+console.log(process.env.VITE_SPOTIFY_CLIENT_ID, process.env.SPOTIFY_SECRET)
+const sdk = SpotifyApi.withClientCredentials(process.env.VITE_SPOTIFY_CLIENT_ID!, process.env.SPOTIFY_SECRET!, [])
 
 export const spotifyRouter = router({
    upsertPlaylistWithTracks: publicProcedure
@@ -70,16 +74,7 @@ export const spotifyRouter = router({
          console.log(chalk.blue(`Upserted Spotify playlist ${playlistRes.name} (${playlistRes.id})`))
 
          // fetch tracks with pagination
-         const tracks = [...playlistRes.tracks.items]
-         let pagingObject = playlistRes.tracks
-         while (pagingObject.next) {
-            const res = await api.get(pagingObject.next, {
-               headers: { Authorization: `Bearer ${accessToken}` },
-            })
-            pagingObject = res.data
-            tracks.push(...pagingObject.items)
-         }
-         console.log(chalk.blue(`Fetched ${tracks.length} tracks. ${tracks.filter((t) => t.track?.id).length} available.`))
+         const tracks = await handlePagination<SpotifyApi.PlaylistTrackObject>(playlistRes.tracks)
 
          // check for existing master tracks to avoid duplicates
          const uniqueSpotifyIds = new Set(
@@ -220,7 +215,52 @@ export const spotifyRouter = router({
    searchPlaylists: publicProcedure
       .input(z.string())
       .query(async ({ input: query }) => await searchSpotify({ query, type: 'playlist' })),
-   searchTracks: publicProcedure
-      .input(z.string())
-      .query(async ({ input: query }) => await searchSpotify({ query, type: 'track' })),
+   searchTracks: publicProcedure.input(z.string()).query(async ({ input: query }) => {
+      await searchSpotify({ query, type: 'track' })
+   }),
+
+   searchArtists: publicProcedure.input(z.string()).query(async ({ input: query }) => {
+      const res = await sdk.search(query, ['artist'])
+      return res.artists.items
+   }),
+   getFullArtist: publicProcedure.input(z.string()).query(async ({ input: artistId }) => {
+      const artist = await sdk.artists.get(artistId)
+      const topTracks = await sdk.artists.topTracks(artistId, 'US')
+      // const related = await sdk.artists.relatedArtists(artistId)
+      const albumsPage = await sdk.artists.albums(artistId)
+      const albums = await handlePagination<SimplifiedAlbum>(albumsPage)
+      return {
+         artist,
+         topTracks: topTracks.tracks,
+         // related: related.artists,
+         albums,
+      }
+   }),
+   getAlbumWithTracks: publicProcedure.input(z.string()).query(async ({ input: albumId }) => {
+      const album = await sdk.albums.get(albumId)
+      const tracksPage = await sdk.albums.tracks(albumId)
+      const tracks = await handlePagination<SimplifiedTrack>(tracksPage)
+      return {
+         ...album,
+         tracks,
+      }
+   }),
 })
+
+const handlePagination = async <T>(page: Page<T>): Promise<T[]> => {
+   const accessToken = await getSpotifyToken().then((res) => res?.access_token)
+   if (!accessToken) throw new Error('No Spotify access token available')
+
+   const items = [...page.items]
+   let pagingObject = page
+   while (pagingObject.next) {
+      console.log(pagingObject.next)
+      const res = await api.get(pagingObject.next, {
+         headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      pagingObject = res.data
+      items.push(...pagingObject.items)
+   }
+   console.log(chalk.blue(`Fetched ${items.length} items.`))
+   return items
+}

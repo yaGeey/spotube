@@ -1,8 +1,8 @@
 import { BrowserWindow } from 'electron'
-import { publicProcedure, router } from '../trpc'
-import { store, win } from '../main'
+import { publicProcedure, router } from '../../trpc'
+import { store, win } from '../../main'
 import Genius from 'genius-lyrics'
-import prisma from '../lib/prisma'
+import prisma from '../../lib/prisma'
 import z from 'zod'
 import { safeSerialize } from '@/utils/objects'
 // Implicit Grant Flow
@@ -78,7 +78,7 @@ const geniusRouter = router({
                            lyrics: lyrics,
                            fullResponse: safeSerialize(songs[0]),
                            query: item.query,
-                        }
+                        },
                      },
                   },
                },

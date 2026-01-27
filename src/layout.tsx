@@ -7,6 +7,9 @@ import { useEffect } from 'react'
 import { useAudioStore } from './audio_store/useAudioStore'
 import { GlobalPlayerController } from './components/GlobalVideoContainer'
 
+const className = ({ isActive, isPending }: { isActive: boolean; isPending: boolean }) =>
+   isActive ? 'text-blue-400 font-semibold' : ''
+
 export default function Layout() {
    useEffect(() => {
       // const init = async () => await useAudioStore.getState().initAdapter('iframe')
@@ -19,17 +22,23 @@ export default function Layout() {
          {/* <Header /> */}
          <nav className="flex gap-2 w-full bg-pink-200/40 px-4 fixed top-0 left-0 h-5">
             {/* end - exact path */}
-            <NavLink to="/" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
+            <NavLink to="/" end className={className}>
                Home
             </NavLink>
-            <NavLink to="/auth" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
+            <NavLink to="/auth" end className={className}>
                Auth
             </NavLink>
-            <NavLink to="/test" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
+            <NavLink to="/test" end className={className}>
                Test youtubei
             </NavLink>
-            <NavLink to="/auth-genius" end className={({ isActive }) => (isActive ? 'text-blue-400 font-semibold' : '')}>
+            <NavLink to="/auth-genius" end className={className}>
                AuthGenius
+            </NavLink>
+            <NavLink to="/spotify/artist?id=0685luDRQZRkN4JnhnRSKX" end className={className}>
+               Artist test
+            </NavLink>
+            <NavLink to="/spotify/search?q=wotaku" end className={className}>
+               Artist test
             </NavLink>
          </nav>
          <div className="mt-5 flex">

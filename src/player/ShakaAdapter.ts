@@ -9,13 +9,16 @@ import type Innertube from 'youtubei.js/web'
 import { SabrStreamingAdapter } from 'googlevideo/sabr-streaming-adapter'
 import { ShakaPlayerAdapter } from '../lib/ShakaPlayerAdapter'
 import { useAudioStore } from '../audio_store/useAudioStore'
+import { trpc, vanillaTrpc } from '../utils/trpc'
 
 export default class ShakaAdapter extends BasePlayer {
    public type: string = 'shaka'
-   private poToken: string | null = null
-   private coldStartToken: string | null = null
    private contentBinding: string | null = null
    private creationLock: boolean = false
+
+   private poToken: string | null = null // Content PO Token (для SABR запитів)
+   private sessionPoToken: string | null = null // Session PO Token (для URL)
+   private coldStartToken: string | null = null
 
    private innertube: Innertube | null = null
    private sabrAdapter: SabrStreamingAdapter | null = null
@@ -30,7 +33,7 @@ export default class ShakaAdapter extends BasePlayer {
    public static async create(videoElement: HTMLVideoElement, shakaPlayer: shaka.Player): Promise<ShakaAdapter> {
       const adapter = new ShakaAdapter(videoElement, shakaPlayer)
       adapter.innertube = await InnertubeClient.getInstance()
-      await botguardService.init()
+      // await botguardService.init()
       console.log('[Player] BotGuard & Inertube loaded')
       return adapter
    }
@@ -43,11 +46,19 @@ export default class ShakaAdapter extends BasePlayer {
 
       const playbackStorage: Partial<CachedVideoData> = {}
 
-      async function decipherUrlAndAddToStorageObject(server_abr_streaming_url: string | null | undefined) {
+      async function decipherUrlAndAddToStorageObject(
+         server_abr_streaming_url: string | null | undefined,
+         sessionPoToken?: string,
+      ) {
          if (!server_abr_streaming_url) throw new Error('No server_abr_streaming_url provided')
          if (!yt) throw new Error('Innertube not initialized')
 
-         const url = await yt.session.player!.decipher(server_abr_streaming_url)
+         let url = await yt.session.player!.decipher(server_abr_streaming_url)
+         if (sessionPoToken) {
+            const separator = url.includes('?') ? '&' : '?'
+            url += `${separator}pot=${sessionPoToken}`
+         }
+
          playbackStorage.streamingUrl = url
 
          const expireTimestamp = new URL(url).searchParams.get('expire')
@@ -60,6 +71,11 @@ export default class ShakaAdapter extends BasePlayer {
       // unload previous
       this.contentBinding = videoId
       await this.dispose()
+
+      this.mintToken().catch((e) => {
+         console.error('[Player] Token minting failed:', e)
+         throw e
+      })
 
       // init SABR adapter
       const sabrAdapter = new SabrStreamingAdapter({
@@ -151,14 +167,18 @@ export default class ShakaAdapter extends BasePlayer {
       if (!this.contentBinding || this.creationLock) return
       this.creationLock = true
       try {
-         this.coldStartToken = botguardService.mintColdStartToken(this.contentBinding)
-         if (!botguardService.isInitialized()) await botguardService.reinit()
+         console.log('[Player] Minting remote tokens via tRPC...')
 
-         if (botguardService.integrityTokenBasedMinter) {
-            this.poToken = await botguardService.integrityTokenBasedMinter.mintAsWebsafeString(
-               decodeURIComponent(this.contentBinding),
-            )
+         const result = await vanillaTrpc.system.getYtIntegrityToken.mutate(this.contentBinding)
+         if (result) {
+            this.poToken = result.contentPoToken
+            this.sessionPoToken = result.sessionPoToken
+            console.log('[Player] Tokens received.')
          }
+      } catch (err) {
+         console.error('[Player] Error minting tokens:', err)
+         this.poToken = null
+         this.sessionPoToken = null
       } finally {
          this.creationLock = false
       }
@@ -202,6 +222,7 @@ export default class ShakaAdapter extends BasePlayer {
       //? Token generates for each video separately
       // this.contentBinding = videoId
       this.poToken = null
+      this.sessionPoToken = null
       this.coldStartToken = null
       this.creationLock = false
       await this.shakaPlayer.unload() //? stop buffering previous video

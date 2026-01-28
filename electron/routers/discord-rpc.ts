@@ -2,7 +2,10 @@ import { publicProcedure, router } from '../trpc'
 import chalk from 'chalk'
 import { z } from 'zod'
 import { createRequire } from 'node:module'
-import { TrackWithRelations } from '../lib/prisma'
+import { ViewTrackModel } from '@/src/utils/currentTrackAdapters'
+import { Artist } from '@spotify/web-api-ts-sdk'
+import { Playlist } from '@/generated/prisma/client'
+import { PlaylistWithItems } from '../lib/prisma'
 // https://discord.com/developers/docs/events/gateway-events#activity-object-activity-types
 // https://discord.com/developers/docs/topics/rpc#setactivity
 const require = createRequire(import.meta.url)
@@ -31,29 +34,43 @@ function setActivity(payload: any) {
       })
 }
 
-const idleStatus = {
-   details: 'Idle',
-   state: 'Browsing...',
+// type: 0 - playing, 2 - listening, 3 - watching, 5 - competing
+// status_display_type: 0 - name, 1 - state, 2 - details
+
+// details
+// state
+// large_text
+
+const defaultStatus = {
+   name: 'yaGeey/spotube (the best player)',
    instance: false,
    type: 2,
+}
+const githubUrl = 'https://github.com/yaGeey/spotube'
+
+const idleStatus = {
+   ...defaultStatus,
+   details: 'Idle',
+   state: 'Browsing...',
 }
 
 let currentStartTime: number | null = null
 
 export const discordRpcRouter = router({
-   updatePresence: publicProcedure.input(z.object({}).loose()).mutation(({ input }) => {
-      const t = input as TrackWithRelations & { currentTime?: number }
-      const { spotify, yt, currentTime = 0 } = t
-      const currentVideo = yt?.find((v) => v.id === t.defaultYtVideoId) || yt?.[0]
-      const spotifyTrack = spotify?.fullResponse
+   playingTrack: publicProcedure.input(z.custom<ViewTrackModel>()).mutation(({ input: t }) => {
+      const curVideo = t.yt?.find((v) => v.id === t.defaultYtVideoId) || t.yt?.[0]
 
-      const duration = currentVideo?.duration ? currentVideo.duration * 1000 : spotifyTrack?.duration_ms
+      const duration = curVideo?.duration ? curVideo.duration * 1000 : null
       if (!currentStartTime) currentStartTime = Date.now()
 
-      const release_date = spotifyTrack?.album.release_date?.split('-')[0]
+      const release_date = t.album?.releaseDate?.split('-')[0]
       setActivity({
+         ...defaultStatus,
          details: t.title,
+         details_url: t.url,
          state: t.artists.map((a) => a.name).join(', '),
+         state_url: t.artists[0]?.url,
+         status_display_type: 2,
          ...(duration && {
             timestamps: {
                start: Date.now(),
@@ -63,28 +80,75 @@ export const discordRpcRouter = router({
                // end: currentStartTime + duration - currentTime * 1000,
             },
          }),
-         assets: spotify
+         assets: t.album
             ? {
-                 large_image: spotifyTrack?.album.images[0].url,
-                 large_text:
-                    spotifyTrack?.album.name === spotify?.title
-                       ? `${release_date}`
-                       : `${spotifyTrack?.album.name} (${release_date})`,
-                 large_url: spotifyTrack?.album.external_urls.spotify,
+                 large_image: t.thumbnailUrl,
+                 large_text: t.album.name === t.title ? `${release_date}` : `${t.album.name} (${release_date})`,
+                 large_url: t.album.url,
                  small_image: 'spotify',
                  small_text: 'Listening from Spotify',
-                 small_url: spotifyTrack?.external_urls.spotify,
+                 small_url: t.url,
               }
             : {
-                 large_image: currentVideo?.thumbnailUrl.replace('http://', 'https://'),
-                 large_text: currentVideo?.publishedAt.getFullYear().toString(),
-                 large_url: `https://www.youtube.com/watch?v=${currentVideo?.id}`,
+                 large_image: curVideo?.thumbnailUrl.replace('http://', 'https://'),
+                 large_text: curVideo?.publishedAt.getFullYear().toString(),
+                 large_url: `https://www.youtube.com/watch?v=${curVideo?.id}`,
                  small_image: 'youtube',
                  small_text: 'Listening from YouTube',
-                 small_url: `https://www.youtube.com/watch?v=${currentVideo?.id}`,
+                 small_url: `https://www.youtube.com/watch?v=${curVideo?.id}`,
               },
-         instance: false,
-         type: 2,
+      })
+   }),
+
+   lookingAtSpotifyArtist: publicProcedure.input(z.custom<Artist>()).mutation(({ input: a }) => {
+      setActivity({
+         ...defaultStatus,
+         details: `Viewing Artist`,
+         details_url: githubUrl,
+         state: a.name,
+         state_url: a.external_urls?.spotify,
+         status_display_type: 1,
+         assets: {
+            large_image: a.images?.[0]?.url,
+            large_url: a.external_urls?.spotify,
+            // large_text: `${a.followers?.total ?? 0} followers`,
+            small_image: 'spotify',
+            small_text: 'Browsing Spotify',
+            small_url: githubUrl,
+         },
+      })
+   }),
+
+   lookingAtPlaylist: publicProcedure.input(z.custom<PlaylistWithItems>()).mutation(({ input: p }) => {
+      const spotify = p.spotifyMetadata?.fullResponse
+      const yt = p.youtubeMetadata?.fullResponse
+      setActivity({
+         ...defaultStatus,
+         details: `Viewing Playlist`,
+         details_url: githubUrl,
+         state: p.title,
+         state_url: p.url,
+         status_display_type: 0,
+         assets: {
+            large_image: p.thumbnailUrl,
+            large_text: p.title,
+            small_url: githubUrl,
+            ...(p.origin === 'SPOTIFY' && {
+               small_image: 'spotify',
+               small_text: 'Imported from Spotify',
+               large_text: `${spotify?.tracks.total} tracks ${spotify?.followers && spotify?.followers.total > 1 ? `• ${spotify?.followers.total} followers` : ''}`,
+               large_url: p.url,
+            }),
+            ...(p.origin === 'YOUTUBE' && {
+               small_image: 'youtube',
+               small_text: 'Imported from YouTube',
+               large_text: yt?.contentDetails?.itemCount ? `${yt?.contentDetails?.itemCount} videos` : 'just yt playlist',
+               large_url: p.url,
+            }),
+            ...(p.origin === 'LOCAL' && {
+               large_url: 'https://github.com/yaGeey/spotube',
+            }),
+         },
       })
    }),
 

@@ -1,5 +1,5 @@
 import { YoutubeVideo } from '@/generated/prisma/client'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, MouseSensor, useSensor } from '@dnd-kit/core'
 import { trpc } from '../utils/trpc'
 import { useState } from 'react'
 
@@ -20,6 +20,9 @@ export default function DndAddYtContext({
          utils.combinedPlaylists.getById.invalidate(plId)
       },
    })
+
+   const sensors = [useSensor(MouseSensor, { activationConstraint: { distance: 10 } })]
+
    function handleStartDrag(e: DragStartEvent) {
       setActiveDragItem(e.active.data.current as YoutubeVideo)
    }
@@ -47,7 +50,7 @@ export default function DndAddYtContext({
       }
    }
    return (
-      <DndContext onDragStart={handleStartDrag} onDragEnd={handleDragEnd}>
+      <DndContext onDragStart={handleStartDrag} onDragEnd={handleDragEnd} sensors={sensors}>
          {children}
          <DragOverlay dropAnimation={null}>
             {activeDragItem ? (

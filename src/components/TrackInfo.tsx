@@ -1,26 +1,23 @@
-import { TrackWithRelations } from '@/electron/lib/prisma'
 import { vanillaTrpc } from '../utils/trpc'
 import { toast } from 'react-toastify'
 import { clsx } from 'clsx'
 import { toastOptions } from '@/utils/toast'
+import { ViewTrackModel } from '../utils/currentTrackAdapters'
+import { useNavigate } from 'react-router-dom'
 
-export default function TrackInfo({ data }: { data: TrackWithRelations }) {
+export default function TrackInfo({ data }: { data: ViewTrackModel }) {
    const lastFm = data.lastFM
+   const navigate = useNavigate()
 
    return (
-      <div className="flex flex-col gap-6 px-3 py-4 max-w-full h-full overflow-y-auto">
+      <div className="flex flex-col gap-6 max-w-full h-full overflow-y-auto">
          {/* --- TRACK CARD (Blue Accent) --- */}
          {lastFm?.track?.wiki?.content && (
             <div className="relative group rounded-lg bg-blue-500/5 border-l-4 border-blue-500/50 p-3 transition-colors hover:bg-blue-500/10">
                <span className="absolute right-2 top-1.5 z-100 text-[10px] font-bold uppercase tracking-widest text-blue-400/50 pointer-events-none">
                   Track
                </span>
-               <InfoSection
-                  title={data.title}
-                  content={lastFm.track.wiki.content}
-                  // Передаємо клас для стилізації хедера всередині
-                  headerClassName="text-blue-200"
-               />
+               <InfoSection title={data.title} content={lastFm.track.wiki.content} headerClassName="text-blue-200" />
                <Tags tags={lastFm.track.toptags.tag} />
             </div>
          )}
@@ -31,7 +28,7 @@ export default function TrackInfo({ data }: { data: TrackWithRelations }) {
                .filter((a) => a.lastFM?.bio?.content)
                .map((artist, i) => (
                   <div
-                     key={artist.id}
+                     key={artist.url}
                      className="relative rounded-lg bg-purple-500/5 border-l-4 border-purple-500/50 p-3 transition-colors hover:bg-purple-500/10"
                   >
                      <span className="absolute right-2 top-1.5 z-100 text-[10px] font-bold uppercase tracking-widest text-purple-400/50 pointer-events-none">
@@ -55,9 +52,10 @@ export default function TrackInfo({ data }: { data: TrackWithRelations }) {
                               {artist.lastFM.similar.artist.map((sim) => (
                                  <span
                                     key={sim.name}
-                                    className="text-sm text-text hover:text-purple-300 transition-colors cursor-default"
+                                    className="text-sm text-text hover:text-purple-300 transition-colors cursor-default hover:underline"
                                     onClick={(e) => {
                                        if (e.ctrlKey) vanillaTrpc.system.openExternalLink.mutate(sim.url)
+                                       else navigate(`/spotify/search?type=artist&q=${encodeURIComponent(sim.name)}`)
                                     }}
                                  >
                                     {sim.name}

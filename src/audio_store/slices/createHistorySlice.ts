@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand'
 import { AudioStore, HistorySlice } from '../types'
 import { toast } from 'react-toastify'
 import { TrackWithRelations } from '@/electron/lib/prisma'
+import { ViewTrackModel } from '@/src/utils/currentTrackAdapters'
 
 export const createHistorySlice: StateCreator<AudioStore, [], [], HistorySlice> = (set, get) => ({
    history: [],
@@ -32,7 +33,7 @@ export const createHistorySlice: StateCreator<AudioStore, [], [], HistorySlice> 
       }
 
       // Ми в кінці історії, треба обрати НОВИЙ трек
-      let newTrack: TrackWithRelations | null = null
+      let newTrack: ViewTrackModel | null = null
       const currentInListId = tracks.findIndex((t) => t.id === current?.id)
 
       if (randomType === 'true') {

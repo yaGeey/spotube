@@ -1,20 +1,12 @@
 import type { VideoCompact } from 'youtubei'
 import type Genius from 'genius-lyrics'
+import type { youtube_v3 } from 'googleapis'
 
 declare global {
    namespace PrismaJson {
       // YouTube
-      // export type YtFullResponse =
-      //    | {
-      //         type: 'searchResult'
-      //         snippet: youtube_v3.Schema$SearchResultSnippet
-      //      }
-      //    | {
-      //         type: 'playlistItem'
-      //         snippet: youtube_v3.Schema$PlaylistItemSnippet
-      //      }
-      // export type YtVideoStatistics = youtube_v3.Schema$VideoStatistics
       export type YtFullResponse = VideoCompact
+      export type YtPlaylistMetadata = youtube_v3.Schema$Playlist
 
       // Spotify
       // export type SpotifyPlaylistItem = SpotifyApi.PlaylistTrackObject

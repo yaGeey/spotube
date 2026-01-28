@@ -2,6 +2,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlay, faHeart, faEllipsis, faClock } from '@fortawesome/free-solid-svg-icons'
 import { trpc } from '../../utils/trpc'
 import { Link, useLocation } from 'react-router-dom'
+import VideoPlayer from '@/src/components/VideoPlayer'
+import SpotifyTracksTable from '@/src/components/spotifyTable/TableSpotify'
 
 const formatDuration = (ms: number) => {
    const minutes = Math.floor(ms / 60000)
@@ -34,9 +36,11 @@ const SpotifyAlbum = () => {
 
    // Calculate total duration
    const totalDurationMs = tracks.reduce((acc: number, track: any) => acc + track.duration_ms, 0)
+   const tracksToDisplay = tracks.map(t => ({...t, album}))
 
    return (
       <div className="min-h-screen bg-main text-text pb-24 font-sans overflow-x-hidden">
+         <VideoPlayer />
          {/* Header Section */}
          <div className="relative min-h-[340px] w-full flex items-end p-8 overflow-hidden bg-gradient-to-b from-main-lighter/80 to-main">
             <div className="relative z-10 flex flex-row items-end gap-6 w-full">
@@ -106,42 +110,7 @@ const SpotifyAlbum = () => {
                      </div>
                   </div>
 
-                  {tracks.map((track: any) => (
-                     <div
-                        key={track.id}
-                        className="group grid grid-cols-[16px_4fr_minmax(60px,1fr)] gap-4 items-center px-4 py-2.5 rounded-md hover:bg-main-lighter transition-colors cursor-pointer"
-                     >
-                        <div className="flex justify-center w-full relative">
-                           <span className="text-text-subtle group-hover:hidden text-base font-variant-numeric tabular-nums">
-                              {track.track_number}
-                           </span>
-                           <FontAwesomeIcon icon={faPlay} className="hidden group-hover:block text-text text-sm absolute" />
-                        </div>
-
-                        <div className="flex flex-col overflow-hidden gap-0.5">
-                           <span className={`truncate font-medium text-base text-text`}>{track.name}</span>
-                           <div className="flex items-center gap-1 text-sm text-text-subtle truncate group-hover:text-text transition-colors">
-                              {track.explicit && (
-                                 <span
-                                    className="border border-text-subtle/60 rounded-[2px] px-1 text-[9px] leading-3 h-3.5 flex items-center justify-center min-w-[12px]"
-                                    title="Explicit"
-                                 >
-                                    E
-                                 </span>
-                              )}
-                              <span className="truncate">{track.artists.map((a: any) => a.name).join(', ')}</span>
-                           </div>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-4 text-text-subtle text-sm font-variant-numeric tabular-nums">
-                           <FontAwesomeIcon
-                              icon={faHeart}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-accent cursor-pointer mr-2"
-                           />
-                           <span>{formatDuration(track.duration_ms)}</span>
-                        </div>
-                     </div>
-                  ))}
+                  <SpotifyTracksTable data={tracksToDisplay} />
                </div>
             </section>
 

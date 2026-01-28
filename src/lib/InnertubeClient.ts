@@ -1,5 +1,6 @@
 import { Innertube, Platform, Types, UniversalCache, Utils, YT, YTNodes } from 'youtubei.js/web'
 import { fetchFunction } from './helpers'
+import { USER_AGENT } from 'bgutils-js'
 
 Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
    const properties = []
@@ -12,6 +13,7 @@ Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, T
 export default class InnertubeClient {
    private static instance: Innertube | null = null
    private static initPromise: Promise<Innertube> | null = null
+   private static visitorData: string | null = null
    private constructor() {}
 
    public static async getInstance(): Promise<Innertube> {
@@ -25,8 +27,11 @@ export default class InnertubeClient {
       try {
          const newInstance = await Innertube.create({
             cache: new UniversalCache(false),
+            // enable_session_cache: false,
+            user_agent: USER_AGENT,
             fetch: fetchFunction,
          })
+         this.visitorData = newInstance.session.context.client.visitorData || null
          console.log('[InnertubeClient] Initialized successfully')
 
          this.instance = newInstance

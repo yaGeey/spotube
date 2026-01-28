@@ -1,15 +1,13 @@
 import { create } from 'zustand'
 import { AudioStore } from './types'
 import { createHistorySlice } from './slices/createHistorySlice'
-import { createPlayerSlice } from './slices/createPlayerSlice'
+import { createControlsSlice } from './slices/createControlsSlice'
 import { createTrackSlice } from './slices/createTracksSlice'
-import { createPlayerLoadSlice } from './slices/createPlayerLoadSlice'
-import { createInitSlice } from './slices/createInitSlice'
+import { createPlayerSlice } from './slices/createPlayerSlice'
 
 export const useAudioStore = create<AudioStore>((...a) => ({
    ...createHistorySlice(...a),
-   ...createPlayerSlice(...a),
+   ...createControlsSlice(...a),
    ...createTrackSlice(...a),
-   ...createPlayerLoadSlice(...a),
-   ...createInitSlice(...a),
+   ...createPlayerSlice(...a),
 }))

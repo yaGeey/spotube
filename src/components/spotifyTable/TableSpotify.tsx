@@ -12,92 +12,60 @@ import {
 } from '@tanstack/react-table'
 import { twMerge } from 'tailwind-merge'
 import { useAudioStore } from '@/src/audio_store/useAudioStore'
-import { formatDuration, formatRelativeTime } from '../../utils/time'
-import { PlaylistItemWithRelations } from '@/electron/lib/prisma'
-import { getUserLanguageScript } from '../../utils/userLanguageScript'
+import { formatDuration } from '../../utils/time'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import TagsCell from './TagsCell'
-import InfoCell from './InfoCell'
-import { TableFiltersContext } from './TableContext'
-import { trpc } from '@/src/utils/trpc'
-import StatusCell from './StatusCell'
+import StatusCell from '../table/StatusCell'
 import { faClock } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { fromDBToCurrent } from '@/src/utils/currentTrackAdapters'
+import { SimplifiedTrack, Track } from '@spotify/web-api-ts-sdk'
+import InfoCellSpotify from './InfoCellSpotify'
+import { fromSpotifyToCurrent } from '@/src/utils/currentTrackAdapters'
+import { TableSpotifyFilterContext } from './TableSpotifyContext'
 const GRID_TEMPLATE = '50px minmax(300px, 1fr) 120px 80px 200px'
 
-const columnHelper = createColumnHelper<PlaylistItemWithRelations>()
+// type SpotifyTrack = Omit<SimplifiedTrack | Track, 'artists'> & {
+//    lastFM: PrismaJson.LastFMTrack | null
+//    artists: ((Artist | SimplifiedArtist) & {
+//       lastFM: PrismaJson.LastFMArtist | null
+//    })[]
+// }
+export type SpotifyTrack = SimplifiedTrack | Track
 
-export default function TracksTable({ data, playlistId }: { data: PlaylistItemWithRelations[]; playlistId: number }) {
+const columnHelper = createColumnHelper<SpotifyTrack>()
+
+export default function SpotifyTracksTable({ data }: { data: SpotifyTrack[] }) {
    const play = useAudioStore((state) => state.play)
-   const current = useAudioStore((state) => state.current)
    const setTracks = useAudioStore((state) => state.setTracks)
    const isYtLoading = useAudioStore((state) => state.isYtLoading)
 
-   const utils = trpc.useUtils()
-   const deleteTracks = trpc.playlists.deleteTracks.useMutation({
-      onSuccess: () => {
-         utils.playlists.getById.invalidate(playlistId)
-         utils.combinedPlaylists.getById.invalidate(playlistId)
-      },
-   })
-   function handleDeleteTrack(trackId: number) {
-      confirm('Delete track?') && deleteTracks.mutate({ playlistId, tracksIds: [trackId] })
-   }
-
    const [sorting, setSorting] = useState<SortingState>([])
    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-   const userScripts = getUserLanguageScript()
 
    const columns = useMemo(
       () => [
          // Column 1: Index / Playing State
          // TODO position
-         columnHelper.accessor((row) => row.position, {
+         columnHelper.accessor((row) => row.track_number, {
             id: 'index',
             header: '#',
-            cell: (info) => <StatusCell trackId={info.row.original.trackId} posIdx={info.getValue()} />,
+            cell: (info) => <StatusCell trackId={info.row.original.id} posIdx={info.getValue()} />,
          }),
 
          // Column 2: Info (Art + Title + Artist)
-         columnHelper.accessor(
-            (row) => row.track?.artists.flatMap((a) => [a.name, a.latinName].filter(Boolean)) ?? [row.track.yt?.[0].author],
-            {
-               id: 'info',
-               header: 'Info',
-               size: 350,
-               filterFn: 'arrIncludesSome',
-               cell: (info) => <InfoCell userScripts={userScripts} info={info} />,
-            },
-         ),
-
-         // Column 3: Date Added
-         columnHelper.accessor((row) => row.addedAt, {
-            id: 'added',
-            header: 'Added',
-            size: 150,
-            cell: (info) => (
-               <div
-                  className={twMerge(
-                     'px-1 text-xs text-text-subtle whitespace-nowrap hidden md:block',
-                     !info.row.original.track.spotify && 'text-red-400',
-                  )}
-               >
-                  {formatRelativeTime(info.getValue() ?? new Date())}
-               </div>
-            ),
+         columnHelper.accessor((row) => row.artists.flatMap((a) => [a.name].filter(Boolean)), {
+            id: 'info',
+            header: 'Info',
+            size: 350,
+            filterFn: 'arrIncludesSome',
+            cell: (info) => <InfoCellSpotify info={info} />,
          }),
 
          // Column 4: Duration
          // TODO change default yt video
          columnHelper.accessor(
             (row) => {
-               const ytDuration = row.track.yt?.[0]?.duration
-               if (ytDuration) return ytDuration
-
-               const spotifyDurationMs = row.track.spotify?.fullResponse.duration_ms
+               const spotifyDurationMs = row.duration_ms
                if (spotifyDurationMs) return Math.floor(spotifyDurationMs / 1000)
-
                return 0
             },
             {
@@ -111,36 +79,8 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                ),
             },
          ),
-
-         // Column 5: Tags
-         columnHelper.accessor(
-            (row) => {
-               const albumTags = row.track.lastFM?.album?.tags?.tag
-               const trackTags = row.track.lastFM?.track?.toptags?.tag
-               const artistTags = row.track.artists.flatMap((a) => {
-                  const tags = a.lastFM?.tags?.tag
-                  if (!tags) return []
-                  return Array.isArray(tags) ? tags.map((t) => t.name) : [(tags as any).name]
-               })
-
-               const allTags = [
-                  ...(albumTags ? (Array.isArray(albumTags) ? albumTags.map((t) => t.name) : [(albumTags as any).name]) : []),
-                  ...(trackTags ? (Array.isArray(trackTags) ? trackTags.map((t) => t.name) : [(trackTags as any).name]) : []),
-                  ...artistTags,
-               ]
-
-               return Array.from(new Set(allTags))
-            },
-            {
-               id: 'tags',
-               header: 'Tags',
-               size: 200,
-               filterFn: 'arrIncludesAll',
-               cell: (info) => <TagsCell info={info} />,
-            },
-         ),
       ],
-      [current, userScripts],
+      [],
    )
 
    const parentRef = useRef<HTMLDivElement>(null)
@@ -168,19 +108,18 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
    })
 
    useEffect(() => {
-      const newRows = table.getFilteredRowModel().rows.map((row) => row.original.track)
+      const newRows = table.getFilteredRowModel().rows.map((row) => row.original)
       const currentTracks = useAudioStore.getState().tracks
 
-      // Порівнюємо рядки як текст.
-      const adapted = newRows.map((track) => fromDBToCurrent(track))
-      if (JSON.stringify(adapted) !== JSON.stringify(currentTracks)) {
+      const transformed = newRows.map((t) => fromSpotifyToCurrent(t))
+      if (JSON.stringify(transformed) !== JSON.stringify(currentTracks)) {
          console.log('🔄 Updating tracks from table filter...')
-         setTracks(adapted)
+         setTracks(transformed)
       }
    }, [setTracks, table.getFilteredRowModel().rows])
 
    return (
-      <TableFiltersContext.Provider value={columnFilters}>
+      <TableSpotifyFilterContext.Provider value={columnFilters}>
          <div ref={parentRef} className="h-[calc(100dvh-200px)] overflow-auto w-full relative">
             <div
                className="sticky py-2 top-0 z-10 bg-main-lighter border-b border-white/10 text-text-subtle text-xs font-medium uppercase tracking-wider"
@@ -217,13 +156,12 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                         play={play}
                         index={index}
                         isYtLoading={isYtLoading}
-                        handleDeleteTrack={handleDeleteTrack}
                      />
                   )
                })}
             </div>
          </div>
-      </TableFiltersContext.Provider>
+      </TableSpotifyFilterContext.Provider>
    )
 }
 
@@ -233,16 +171,14 @@ const VirtualizedRow = React.memo(
       virtualRow,
       play,
       isYtLoading,
-      handleDeleteTrack,
    }: {
-      row: Row<PlaylistItemWithRelations>
+      row: Row<SimplifiedTrack>
       virtualRow: any
       play: (track: any) => void
       index: number
       isYtLoading: boolean
-      handleDeleteTrack: (trackId: number) => void
    }) => {
-      const isPlaying = useAudioStore((state) => state.current?.id === row.original.trackId)
+      const isPlaying = useAudioStore((state) => state.current?.id === row.original.id)
 
       return (
          <div
@@ -256,8 +192,7 @@ const VirtualizedRow = React.memo(
                transform: `translateY(${virtualRow.start}px)`,
                gridTemplateColumns: GRID_TEMPLATE,
             }}
-            onDoubleClick={() => play({ track: fromDBToCurrent(row.original.track) })}
-            onContextMenu={() => handleDeleteTrack(row.original.track.id)}
+            onDoubleClick={() => play({ track: fromSpotifyToCurrent(row.original) })}
          >
             {row.getVisibleCells().map((cell) => (
                <div key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>

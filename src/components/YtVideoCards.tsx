@@ -3,23 +3,21 @@ import { trpc } from '../utils/trpc'
 import { YoutubeVideo } from '@/generated/prisma/client'
 import { useDraggable } from '@dnd-kit/core'
 import { twMerge } from 'tailwind-merge'
-import { TrackWithRelations } from '@/electron/lib/prisma'
+import { ViewTrackModel } from '../utils/currentTrackAdapters'
 
-export default function YtVideoCards() {
+export default function YtVideoCards({ data: current }: { data: ViewTrackModel }) {
    const play = useAudioStore((state) => state.play)
-   const current = useAudioStore((state) => state.current)
    const updateDefaultVideo = useAudioStore((state) => state.updateDefaultVideo)
 
    const mutation = trpc.tracks.updateDefaultVideo.useMutation()
    const handleClick = (ytId: string) => {
-      if (!current?.spotify?.id) return
-      mutation.mutate({ trackId: current.id, youtubeVideoId: ytId })
+      if (!current?.id && current?.source !== 'LOCAL') return
+      mutation.mutate({ trackId: current.id as number, youtubeVideoId: ytId })
       play({ track: current!, forceVideoId: ytId })
    }
 
-   if (!current?.yt || current.yt.length <= 1 || !current.spotify?.id) return null
    return (
-      <div className="flex flex-col gap-4 px-3 py-4 overflow-y-auto h-full">
+      <div className="flex flex-col gap-4 overflow-y-auto h-full">
          {current.yt.map((v) => (
             <DraggableVideo
                key={v.id}
@@ -41,8 +39,8 @@ function DraggableVideo({
 }: {
    v: YoutubeVideo
    handleClick: (ytId: string) => void
-   current: TrackWithRelations
-   updateDefaultVideo: (params: { track: TrackWithRelations; youtubeVideoId: string }) => void
+   current: ViewTrackModel
+   updateDefaultVideo: (params: { track: ViewTrackModel; youtubeVideoId: string }) => void
 }) {
    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
       id: v.id,

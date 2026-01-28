@@ -1,16 +1,14 @@
 import { publicProcedure, router } from '../../trpc'
-import { google, youtube_v3 } from 'googleapis'
+import { google } from 'googleapis'
 import chalk from 'chalk'
 import { parseRelative } from '@/src/utils/time'
 import prisma, { playlistWithDeepRelations, PlaylistWithItems, TrackWithRelations, trackWithRelations } from '../../lib/prisma'
-import { LastFM, MasterTrack, Prisma } from '@/generated/prisma/client'
-import { Client, MusicClient } from 'youtubei'
+import { YoutubeVideo } from '@/generated/prisma/client'
+import { Client } from 'youtubei'
 import z from 'zod'
 import pLimit from 'p-limit'
 import pRetry from 'p-retry'
-import { extractTrackInfo, extractTrackInfoStrict } from '@/utils/videoTitle'
 import { extractArtistsAndTitle } from '../../lib/ai'
-import Innertube, { UniversalCache, ClientType, Platform, Types } from 'youtubei.js'
 const limit = pLimit(2)
 
 const googleYoutube = google.youtube({ version: 'v3', auth: import.meta.env.VITE_YT_API_KEY })
@@ -254,8 +252,7 @@ export const youtubeRouter = router({
    upsertVideosToMasterFromSpotify: publicProcedure
       .input(
          z.object({
-            artist: z.string(),
-            title: z.string(),
+            q: z.string(),
             masterId: z.number(),
             refetch: z.boolean().optional().default(false),
          }),
@@ -266,11 +263,11 @@ export const youtubeRouter = router({
             where: { id: item.masterId },
             include: trackWithRelations,
          })
-         if (existing && existing.yt.length > 0 && !item.refetch) return existing
+         if (existing && existing.yt.length > 0 && !item.refetch) return existing.yt
          console.log(chalk.blue(`Adding videos to master track ${item.masterId} from YouTube based on Spotify data`))
 
-         const qString = `${item.artist} - ${item.title}`
-         return await searchAndAddVideoToMaster({ qString, masterTrackId: item.masterId })
+         const masterTrackResult = await searchAndAddVideoToMaster({ qString: item.q, masterTrackId: item.masterId })
+         return masterTrackResult?.yt ?? []
       }),
 
    //
@@ -288,6 +285,7 @@ export const youtubeRouter = router({
                },
             },
          })
+         console.log(chalk.blue(`Deleting YouTube playlist ${youtubeMetadataId} and ${tracksToDelete.length} associated tracks`))
 
          // delete YoutubePlaylist -> Playlist -> PlaylistItem
          await tx.youtubePlaylist.deleteMany({
@@ -303,14 +301,33 @@ export const youtubeRouter = router({
          })
       })
    }),
+
+   searchVideos: publicProcedure.input(z.string()).query(async ({ input }) => await searchVideos(input)),
 })
 
-async function searchAndAddVideoToMaster({ qString, masterTrackId }: { qString: string; masterTrackId: number }) {
-   // fetch youtube
+async function searchVideos(qString: string) {
    const res = await youtube.search(qString, {
       type: 'video',
    }) // 20 items
-   const videos = res.items
+   return res.items.map(
+      (v) =>
+         ({
+            id: v.id,
+            title: v.title,
+            author: v.channel?.name ?? 'Unknown',
+            authorId: v.channel?.id ?? 'Unknown',
+            duration: v.duration || 0,
+            thumbnailUrl: v.thumbnails.best ?? '',
+            publishedAt: v.uploadDate ? parseRelative(v.uploadDate) : new Date(),
+            views: v.viewCount || 0,
+            index: null,
+         }) satisfies YoutubeVideo,
+   )
+}
+
+async function searchAndAddVideoToMaster({ qString, masterTrackId }: { qString: string; masterTrackId: number }) {
+   // fetch youtube
+   const videos = await searchVideos(qString)
    if (videos.length === 0) return null
 
    // upsert master track with youtube video relation
@@ -320,16 +337,7 @@ async function searchAndAddVideoToMaster({ qString, masterTrackId }: { qString: 
          yt: {
             connectOrCreate: videos.map((v, index) => ({
                where: { id: v.id },
-               create: {
-                  id: v.id,
-                  title: v.title,
-                  author: v.channel?.name ?? 'Unknown Author',
-                  duration: v.duration || 0,
-                  views: v.viewCount || 0,
-                  publishedAt: v.uploadDate ? parseRelative(v.uploadDate) : new Date(),
-                  thumbnailUrl: v.thumbnails[0]?.url || '',
-                  index,
-               },
+               create: { ...v, index },
             })),
          },
       },

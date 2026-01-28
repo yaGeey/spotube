@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
    faPlay,
-   faHeart,
    faEllipsis,
    faClock,
    faCertificate,
@@ -15,14 +14,12 @@ import {
    faChevronDown,
    faChevronUp,
 } from '@fortawesome/free-solid-svg-icons'
-import { trpc } from '../../utils/trpc'
+import { trpc, vanillaTrpc } from '../../utils/trpc'
 import { Link, useLocation } from 'react-router-dom'
-
-const formatDuration = (ms: number) => {
-   const minutes = Math.floor(ms / 60000)
-   const seconds = ((ms % 60000) / 1000).toFixed(0)
-   return `${minutes}:${Number(seconds) < 10 ? '0' : ''}${seconds}`
-}
+import SpotifyTracksTable from '@/src/components/spotifyTable/TableSpotify'
+import VideoPlayer from '@/src/components/VideoPlayer'
+import Loading from '@/src/components/states/Loading'
+import Error from '@/src/components/states/Error'
 
 const formatNumber = (num: number) => {
    return new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(num)
@@ -36,28 +33,26 @@ const SpotifyArtist = () => {
    const [showAllTracks, setShowAllTracks] = useState(false)
    const [showAllAlbums, setShowAllAlbums] = useState(false)
 
-   if (!artistId)
-      return <div className="h-screen w-full flex items-center justify-center bg-main text-text">Invalid Artist ID</div>
+   const { data, isLoading, error } = trpc.spotify.getFullArtist.useQuery(artistId!, { enabled: Boolean(artistId) })
+   useEffect(() => {
+      if (data?.artist) vanillaTrpc.discord.lookingAtSpotifyArtist.mutate(data?.artist)
+   }, [data?.artist])
 
-   const { data, isLoading, error } = trpc.spotify.getFullArtist.useQuery(artistId)
-
-   if (isLoading) return <div className="h-screen w-full flex items-center justify-center bg-main text-text">Loading...</div>
-   if (error || !data)
-      return <div className="h-screen w-full flex items-center justify-center bg-main text-accent">Error loading data</div>
+   if (!artistId) return <Error msg="No artist ID provided in the URL." />
+   if (isLoading) return <Loading />
+   if (error || !data) return <Error msg={error?.message} />
 
    const { artist, topTracks, albums } = data
    const headerImage = artist.images?.[0]?.url
 
    // Logic for slicing data
    const displayedTracks = showAllTracks ? topTracks : topTracks.slice(0, 5)
-   // Assuming 5 columns on XL screens, 10 items = 2 rows
    const displayedAlbums = showAllAlbums ? albums : albums.slice(0, 8)
 
-   // Safety check for external urls
    const spotifyUrl = artist.external_urls?.spotify
-
    return (
       <div className="min-h-screen bg-main text-text pb-24 font-sans overflow-x-hidden">
+         <VideoPlayer />
          {/* Header Section */}
          <div className="relative h-[40vh] min-h-[340px] w-full flex items-end p-8 overflow-hidden">
             <div className="absolute inset-0 bg-cover bg-center z-0" style={{ backgroundImage: `url(${headerImage})` }}>
@@ -144,42 +139,7 @@ const SpotifyArtist = () => {
                      </div>
                   </div>
 
-                  {displayedTracks.map((track, index: number) => (
-                     <div
-                        key={track.id}
-                        className="group grid grid-cols-[20px_4fr_2fr_minmax(60px,1fr)] gap-4 items-center px-4 py-2.5 rounded-md hover:bg-main-lighter transition-colors cursor-pointer"
-                     >
-                        <div className="flex justify-center w-full">
-                           <span className="text-text-subtle group-hover:hidden text-base">{index + 1}</span>
-                           <FontAwesomeIcon icon={faPlay} className="hidden group-hover:block text-text text-sm" />
-                        </div>
-
-                        <div className="flex items-center gap-4 overflow-hidden">
-                           <img
-                              src={track.album?.images?.[2]?.url || track.album?.images?.[0]?.url}
-                              alt={track.name}
-                              className="w-10 h-10 rounded shadow-sm object-cover"
-                           />
-                           <div className="flex flex-col truncate">
-                              <span className="truncate font-medium text-text group-hover:underline decoration-text">
-                                 {track.name}
-                              </span>
-                           </div>
-                        </div>
-
-                        <span className="text-text-subtle text-sm truncate text-right font-variant-numeric tabular-nums group-hover:text-text">
-                           {track.popularity ? formatNumber(track.popularity * 1000) : '–'}
-                        </span>
-
-                        <div className="flex items-center justify-end gap-4 text-text-subtle text-sm font-variant-numeric tabular-nums">
-                           <FontAwesomeIcon
-                              icon={faHeart}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-accent cursor-pointer"
-                           />
-                           <span>{formatDuration(track.duration_ms)}</span>
-                        </div>
-                     </div>
-                  ))}
+                  {<SpotifyTracksTable data={displayedTracks} />}
 
                   {/* Show More Button for Tracks */}
                   {topTracks.length > 5 && (

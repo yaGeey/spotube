@@ -1,10 +1,9 @@
 import { useContext } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { TableFiltersContext } from './TableContext'
-import { PlaylistItemWithRelations } from '@/electron/lib/prisma'
 import { CellContext } from '@tanstack/react-table'
 
-export default function TagsCell({ info }: { info: CellContext<PlaylistItemWithRelations, string[]> }) {
+export default function TagsCell({ info }: { info: CellContext<any, string[]> }) {
    const tags = info.getValue()
 
    const globalFilters = useContext(TableFiltersContext)

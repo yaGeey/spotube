@@ -1,21 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import Player from './components/Player'
-import Header from './components/Header'
 import Playlists from './components/nav/Playlists'
 import { ToastContainer } from 'react-toastify'
-import { useEffect } from 'react'
-import { useAudioStore } from './audio_store/useAudioStore'
 import { GlobalPlayerController } from './components/GlobalVideoContainer'
+import Info from './components/nav/Info'
 
 const className = ({ isActive, isPending }: { isActive: boolean; isPending: boolean }) =>
    isActive ? 'text-blue-400 font-semibold' : ''
 
 export default function Layout() {
-   useEffect(() => {
-      // const init = async () => await useAudioStore.getState().initAdapter('iframe')
-      // init()
-      useAudioStore.getState().updateState({ mode: 'iframe' })
-   }, [])
    return (
       <div className="pb-[90px] text-text text-sm">
          <GlobalPlayerController />
@@ -46,6 +39,7 @@ export default function Layout() {
             <div className="flex-1 pr-[320px]">
                <Outlet />
             </div>
+            <Info />
          </div>
          <Player />
          <ToastContainer

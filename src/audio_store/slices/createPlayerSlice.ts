@@ -1,76 +1,82 @@
 import { StateCreator } from 'zustand'
-import { AudioStore, PlayerSlice } from '../types'
-import { toast } from 'react-toastify'
-import { trpc, vanillaTrpc } from '@/src/utils/trpc'
-import { PlaylistWithItems, TrackWithRelations } from '@/electron/lib/prisma'
+import { AudioStore, InitSlice } from '../types'
+import ShakaAdapter from '@/src/player/ShakaAdapter'
+import BasePlayerAdapter from '@/src/player/BasePlayerAdapter'
+import IFrameAdapter from '@/src/player/IFrameAdapter'
+import { getStorageValue } from '@/utils/sessionStorage'
 
-export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = (set, get) => ({
+export const createPlayerSlice: StateCreator<AudioStore, [], [], InitSlice> = (set, get) => ({
+   adapter: null,
+   // mode: getStorageValue('player-mode', 'iframe') as 'shaka' | 'iframe',
+   mode: 'shaka',
+
+   videoElement: null,
+   shakaPlayer: null,
    playerRef: null,
-   isPlaying: false,
-   playlistId: undefined,
-   updateState: (state) => set((p) => ({ ...p, ...state })),
+   shakaContainer: null,
+   bgContainer: null,
 
-   play: async ({ track, forceVideoId, skipHistory }) => {
-      const { adapter, addToHistory, addYtVideoToTrack } = get()
-      if (!adapter) return toast.warn('⚠️ Player not ready')
+   currentTime: 0,
+   duration: 0,
+   volume: getStorageValue('player-volume', 25) as number,
+   isMuted: getStorageValue('player-muted', false) as boolean,
 
-      let videoId = forceVideoId ?? track.defaultYtVideoId ?? track.yt?.[0]?.id
-      let data: TrackWithRelations = track
-
-      // if no yt - add
-      if (!track.yt || !track.yt[0]) {
-         set({ isYtLoading: true })
-         console.warn('No youtube video provided. Fetching...')
-         data = (await vanillaTrpc.yt.upsertVideosToMasterFromSpotify.mutate({
-            artist: track.artists.map((a) => a.name).join(', '),
-            title: track.title,
-            masterId: track.id,
-         })) as TrackWithRelations
-         if (!data || !data.yt.length) return toast.error('❌ No videos found')
-         for (const video of data.yt) {
-            addYtVideoToTrack({ trackId: track.id, ytPayload: video })
-         }
-         videoId = data.yt[0].id
-
-         set({ isYtLoading: false })
+   initAdapter: async () => {
+      const { adapter: oldAdapter, videoElement, shakaPlayer, playerRef, mode } = get()
+      if (oldAdapter) {
+         // oldAdapter.pause()
+         oldAdapter.dispose()
+         // TODO seekTo current time on new adapter
+         set({ current: null })
       }
 
-      try {
-         vanillaTrpc.discord.updatePresence.mutate(track)
+      let adapter: BasePlayerAdapter | null = null
+      if (mode === 'shaka') {
+         if (!videoElement || !shakaPlayer)
+            return console.error('Cannot initialize Shaka Adapter: videoElement or shakaPlayer is null')
+         adapter = await ShakaAdapter.create(videoElement, shakaPlayer)
+      } else if (mode === 'iframe') {
+         if (!playerRef) return console.error('Cannot initialize IFrame Adapter: playerRef is null')
+         adapter = new IFrameAdapter(playerRef)
+      }
 
-         adapter.loadVideo(videoId)
-         // adapter.play()
-         if (!skipHistory) {
-            addToHistory(track)
-         }
-         set({ current: { ...track, yt: data.yt }, isPlaying: true })
-      } catch (error) {
-         console.error('❌ Play error:', error)
-         toast.error('Failed to play video')
-         set({ isPlaying: false })
+      if (adapter) {
+         const { volume, isMuted } = get()
+         adapter.setVolume(volume)
+         adapter.setMuted(isMuted)
+         set({ mode, adapter })
       }
    },
 
-   stop: () => {
+   setMode: (mode: 'shaka' | 'iframe') => {
+      localStorage.setItem('player-mode', mode)
+      set({ mode })
+   },
+
+   seekTo: (time: number) => {
       const { adapter } = get()
-      if (!adapter) return console.warn('⚠️ Player not ready')
-      vanillaTrpc.discord.clear.mutate()
-      adapter.pause()
-      set({ isPlaying: false })
+      if (!adapter) return console.warn('⚠️ adapter not ready')
+      adapter.seekTo(time)
+
+      set({ currentTime: time })
    },
 
-   toggle: () => {
-      const { adapter, isPlaying, current } = get()
-      if (!adapter) return console.warn('⚠️ Player not ready')
-      // const state = playerRef.getPlayerState()
-      if (isPlaying) {
-         adapter.pause()
-         vanillaTrpc.discord.clear.mutate()
-         set({ isPlaying: false })
-      } else {
-         adapter.play()
-         if (current) vanillaTrpc.discord.updatePresence.mutate(current)
-         set({ isPlaying: true })
-      }
+   /* input: 0 <= volume <= 100 */
+   setVolume: (volume: number) => {
+      const { adapter } = get()
+      if (!adapter) return console.warn('⚠️ adapter not ready')
+      adapter.setVolume(volume)
+
+      localStorage.setItem('player-volume', volume.toString())
+      set({ volume })
+   },
+
+   setMuted: (muted: boolean) => {
+      const { adapter } = get()
+      if (!adapter) return console.warn('⚠️ adapter not ready')
+      adapter.setMuted(muted)
+
+      localStorage.setItem('player-muted', muted ? '1' : '0')
+      set({ isMuted: muted })
    },
 })

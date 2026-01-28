@@ -1,0 +1,6 @@
+{
+   "name": "canvas",
+   "version": "2.5.0",
+   "description": "Fake canvas to trick jsdom",
+   "main": "index.js"
+}

@@ -9,6 +9,8 @@ import { vanillaTrpc } from '../utils/trpc'
 import { useShallow } from 'zustand/react/shallow'
 import ShakaPlayerBarTrackProgress from './shaka/ShakaPlayerBarTrackProgress'
 import PlayerBarVolume from './PlayerBarVolume'
+import { is } from 'zod/v4/locales'
+import { useNavigate } from 'react-router-dom'
 
 export default function Player() {
    const { current, toggle, playerRef, isPlaying, next, back, randomType, updateState, videoRef, mode } = useAudioStore(
@@ -58,6 +60,8 @@ export default function Player() {
       return () => element.removeEventListener('wheel', handleWheel)
    }, [current, playerRef])
 
+   const navigate = useNavigate()
+
    if (!current || (!playerRef && !videoRef)) return null
    return (
       <div
@@ -78,19 +82,24 @@ export default function Player() {
             </div>
             {/* Track Title & Artists */}
             <div className="flex flex-col overflow-hidden">
-               <span className="text-sm font-medium hover:underline cursor-pointer truncate text-text">{current.title}</span>
+               <span
+                  className="text-sm font-medium hover:underline cursor-pointer truncate text-text"
+                  onClick={(e) => {
+                     if (e.ctrlKey) vanillaTrpc.system.openExternalLink.mutate(current.url)
+                     else navigate(`/spotify/album/${current.album?.id}`) // TODO page for /tracks/
+                  }}
+               >
+                  {current.title}
+               </span>
                <div className="truncate text-text-subtle">
                   {current.artists.map((a, index) => (
-                     <span key={a.id}>
+                     <span key={a.name + index}>
                         <span
                            className="text-xs hover:underline cursor-pointer truncate hover:text-text transition-colors"
                            onClick={(e) => {
-                              if (e.ctrlKey) {
-                                 if (a.spotifyId)
-                                    vanillaTrpc.system.openExternalLink.mutate(`https://open.spotify.com/artist/${a.spotifyId}`)
-                                 if (a.ytChannelId)
-                                    vanillaTrpc.system.openExternalLink.mutate(`https://www.youtube.com/channel/${a.ytChannelId}`)
-                              }
+                              if (e.ctrlKey && a.url) {
+                                 vanillaTrpc.system.openExternalLink.mutate(a.url)
+                              } else navigate(`/spotify/artist/${encodeURIComponent(a.name)}`)
                            }}
                         >
                            {a.name}

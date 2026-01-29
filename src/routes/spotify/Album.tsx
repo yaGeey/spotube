@@ -2,8 +2,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlay, faHeart, faEllipsis, faClock } from '@fortawesome/free-solid-svg-icons'
 import { trpc } from '../../utils/trpc'
 import { Link, useLocation } from 'react-router-dom'
-import VideoPlayer from '@/src/components/VideoPlayer'
 import SpotifyTracksTable from '@/src/components/spotifyTable/TableSpotify'
+import VideoSlot from '@/src/components/player/VideoSlot'
 
 const formatDuration = (ms: number) => {
    const minutes = Math.floor(ms / 60000)
@@ -36,11 +36,11 @@ const SpotifyAlbum = () => {
 
    // Calculate total duration
    const totalDurationMs = tracks.reduce((acc: number, track: any) => acc + track.duration_ms, 0)
-   const tracksToDisplay = tracks.map(t => ({...t, album}))
+   const tracksToDisplay = tracks.map((t) => ({ ...t, album }))
 
    return (
       <div className="min-h-screen bg-main text-text pb-24 font-sans overflow-x-hidden">
-         <VideoPlayer />
+         <VideoSlot />
          {/* Header Section */}
          <div className="relative min-h-[340px] w-full flex items-end p-8 overflow-hidden bg-gradient-to-b from-main-lighter/80 to-main">
             <div className="relative z-10 flex flex-row items-end gap-6 w-full">

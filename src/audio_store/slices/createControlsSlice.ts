@@ -1,14 +1,12 @@
 import { StateCreator } from 'zustand'
-import { AudioStore, PlayerSlice } from '../types'
+import { AudioStore, ControlsSlice } from '../types'
 import { toast } from 'react-toastify'
 import { vanillaTrpc } from '@/src/utils/trpc'
 import { YoutubeVideo } from '@/generated/prisma/client'
 
-export const createControlsSlice: StateCreator<AudioStore, [], [], PlayerSlice> = (set, get) => ({
-   playerRef: null,
+export const createControlsSlice: StateCreator<AudioStore, [], [], ControlsSlice> = (set, get) => ({
    isPlaying: false,
    playlistId: undefined,
-   isVisible: true,
    updateState: (state) => set((p) => ({ ...p, ...state })),
 
    play: async ({ track, forceVideoId, skipHistory, addToDb = true }) => {

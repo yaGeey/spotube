@@ -8,8 +8,7 @@ type RandomType = null | 'true' | 'leastPlayedAllTime' | 'leastPlayedNow'
 // videoRef - shaka player video element reference
 // playerRef - youtube iframe reference
 
-export interface PlayerSlice {
-   playerRef: any | null
+export interface ControlsSlice {
    play: ({
       track,
       forceVideoId,
@@ -26,7 +25,6 @@ export interface PlayerSlice {
    isPlaying: boolean
    playlistId: number | undefined
    updateState: (state: Partial<AudioStore>) => void
-   isVisible: boolean
 }
 
 export interface TrackSlice {
@@ -49,7 +47,7 @@ export interface HistorySlice {
    randomType: RandomType
 }
 
-export type InitSlice = {
+export type PlayerSlice = {
    adapter: BasePlayer | null
    mode: 'shaka' | 'iframe' | null
    initAdapter: () => Promise<void>
@@ -60,6 +58,7 @@ export type InitSlice = {
    shakaContainer: HTMLDivElement | null
    playerRef: any | null
    bgContainer: HTMLDivElement | null
+   absoluteContainer: HTMLDivElement | null
 
    currentTime: number
    duration: number
@@ -68,6 +67,8 @@ export type InitSlice = {
    seekTo: (time: number) => void
    setVolume: (volume: number) => void
    setMuted: (muted: boolean) => void
+   isVisible: boolean
+   isPip: boolean
 }
 
-export type AudioStore = PlayerSlice & InitSlice & TrackSlice & HistorySlice
+export type AudioStore = ControlsSlice & PlayerSlice & TrackSlice & HistorySlice

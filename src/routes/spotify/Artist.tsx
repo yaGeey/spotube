@@ -17,9 +17,9 @@ import {
 import { trpc, vanillaTrpc } from '../../utils/trpc'
 import { Link, useLocation } from 'react-router-dom'
 import SpotifyTracksTable from '@/src/components/spotifyTable/TableSpotify'
-import VideoPlayer from '@/src/components/VideoPlayer'
 import Loading from '@/src/components/states/Loading'
 import Error from '@/src/components/states/Error'
+import VideoSlot from '@/src/components/player/VideoSlot'
 
 const formatNumber = (num: number) => {
    return new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(num)
@@ -52,7 +52,7 @@ const SpotifyArtist = () => {
    const spotifyUrl = artist.external_urls?.spotify
    return (
       <div className="min-h-screen bg-main text-text pb-24 font-sans overflow-x-hidden">
-         <VideoPlayer />
+         <VideoSlot />
          {/* Header Section */}
          <div className="relative h-[40vh] min-h-[340px] w-full flex items-end p-8 overflow-hidden">
             <div className="absolute inset-0 bg-cover bg-center z-0" style={{ backgroundImage: `url(${headerImage})` }}>

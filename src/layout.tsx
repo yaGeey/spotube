@@ -2,16 +2,16 @@ import { NavLink, Outlet } from 'react-router-dom'
 import Player from './components/Player'
 import Playlists from './components/nav/Playlists'
 import { ToastContainer } from 'react-toastify'
-import { GlobalPlayerController } from './components/GlobalVideoContainer'
 import Info from './components/nav/Info'
+import AbsoluteVideoContainer from './components/player/AbsoluteVideoContainer'
 
 const className = ({ isActive, isPending }: { isActive: boolean; isPending: boolean }) =>
    isActive ? 'text-blue-400 font-semibold' : ''
 
 export default function Layout() {
    return (
-      <div className="pb-[90px] text-text text-sm">
-         <GlobalPlayerController />
+      <div className="text-text text-sm">
+         <AbsoluteVideoContainer />
          {/* <Header /> */}
          <nav className="flex gap-2 w-full bg-pink-200/40 px-4 fixed top-0 left-0 h-5">
             {/* end - exact path */}
@@ -34,7 +34,8 @@ export default function Layout() {
                Artist test
             </NavLink>
          </nav>
-         <div className="mt-5 flex">
+         {/* TODO pb when current only (playerbar shown) */}
+         <div className="mt-5 flex pb-[90px]">
             <Playlists />
             <div className="flex-1 pr-[320px]">
                <Outlet />

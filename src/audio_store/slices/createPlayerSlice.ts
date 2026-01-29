@@ -1,11 +1,11 @@
 import { StateCreator } from 'zustand'
-import { AudioStore, InitSlice } from '../types'
+import { AudioStore, PlayerSlice } from '../types'
 import ShakaAdapter from '@/src/player/ShakaAdapter'
 import BasePlayerAdapter from '@/src/player/BasePlayerAdapter'
 import IFrameAdapter from '@/src/player/IFrameAdapter'
 import { getStorageValue } from '@/utils/sessionStorage'
 
-export const createPlayerSlice: StateCreator<AudioStore, [], [], InitSlice> = (set, get) => ({
+export const createPlayerSlice: StateCreator<AudioStore, [], [], PlayerSlice> = (set, get) => ({
    adapter: null,
    // mode: getStorageValue('player-mode', 'iframe') as 'shaka' | 'iframe',
    mode: 'shaka',
@@ -15,11 +15,14 @@ export const createPlayerSlice: StateCreator<AudioStore, [], [], InitSlice> = (s
    playerRef: null,
    shakaContainer: null,
    bgContainer: null,
+   absoluteContainer: null,
 
    currentTime: 0,
    duration: 0,
    volume: getStorageValue('player-volume', 25) as number,
    isMuted: getStorageValue('player-muted', false) as boolean,
+   isVisible: true,
+   isPip: false,
 
    initAdapter: async () => {
       const { adapter: oldAdapter, videoElement, shakaPlayer, playerRef, mode } = get()

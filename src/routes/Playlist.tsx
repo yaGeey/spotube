@@ -9,7 +9,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { playlistWithDeepRelations } from '@/electron/lib/prisma'
 import TableDropZone from '../components/table/DropZone'
 import DndAddYtContext from '../components/DndAddYtContext'
-import VideoPlayer from '../components/VideoPlayer'
+import VideoSlot from '../components/player/VideoSlot'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -124,7 +124,14 @@ export default function Playlist() {
             <div className="flex gap-2">
                <Button onClick={() => play({ track: tracks[Math.round(Math.random() * tracks.length - 1)] })}>PLAY random</Button>
                <Button onClick={() => stop()}>STOP</Button>
-               <Button onClick={() => useAudioStore.setState((p) => ({ isVisible: !p.isVisible }))}>toggle player</Button>
+               <Button
+                  onClick={() => {
+                     useAudioStore.setState((p) => ({ isVisible: !p.isVisible }))
+                  }}
+               >
+                  toggle player
+               </Button>
+               <Button onClick={(e) => useAudioStore.setState((p) => ({ isPip: !p.isPip }))}>PIP</Button>
                <Button
                   onClick={() => {
                      // setIsFullScreen((p) => !p)
@@ -152,7 +159,7 @@ export default function Playlist() {
                </Button>
             </div>
          </div>
-         <VideoPlayer />
+         <VideoSlot />
          {items && (
             <TableDropZone>
                <TracksTable data={items} playlistId={playlistId} />

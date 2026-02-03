@@ -1,17 +1,20 @@
 import React from 'react'
-import TrackInfo from '../TrackInfo' // припустимо шлях
-import YtVideoCards from '../YtVideoCards' // припустимо шлях
+import TrackInfo from '../TrackInfo'
+import YtVideoCards from '../YtVideoCards'
 import SwitchDiv from './SwitchDiv'
 import { useAudioStore } from '@/src/audio_store/useAudioStore'
 
-export type Options = 'YT' | 'Info'
+type Options = 'YT' | 'Info'
 export default function Info() {
    const current = useAudioStore((state) => state.current)
 
    const showInfo = Boolean(current?.lastFM || current?.artists.some((a) => a.lastFM))
    const showYt = Boolean(current && current?.yt.length > 1)
 
-   const [selected, setSelected] = React.useState<Options>('YT')
+   const [selected, setSelected] = React.useState<Options | null>(showInfo ? 'Info' : showYt ? 'YT' : null)
+   React.useEffect(() => {
+      setSelected(showInfo ? 'Info' : showYt ? 'YT' : null)
+   }, [current, showInfo, showYt])
 
    return (
       <div className="fixed right-0 top-[30px] bottom-[90px] w-[320px] overflow-y-auto">
@@ -22,7 +25,7 @@ export default function Info() {
                   {
                      text: 'Info',
                      fn: () => setSelected('Info'),
-                     visible: showInfo,
+                     visible: true,
                   },
                   {
                      text: 'YT',

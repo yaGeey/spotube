@@ -6,7 +6,7 @@ interface SwitchDivProps {
       fn: () => void
       visible?: boolean
    }[]
-   activeId: string
+   activeId: string | null
 }
 
 export default function SwitchDiv({ items, activeId }: SwitchDivProps) {
@@ -14,6 +14,7 @@ export default function SwitchDiv({ items, activeId }: SwitchDivProps) {
    const activeIndex = visibleItems.findIndex((item) => item.text === activeId)
    const isValidIndex = activeIndex !== -1
 
+   if (visibleItems.length <= 1) return null
    return (
       <div className="relative w-fit text-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 animate-gradient-x rounded-full flex items-center px-0.5 py-0.5">
          <div

@@ -42,16 +42,19 @@ function setActivity(payload: any) {
 // large_text
 
 const defaultStatus = {
-   name: 'yaGeey/spotube (the best player)',
+   name: 'yaGeey/Astolfik (the best player)',
    instance: false,
    type: 2,
 }
-const githubUrl = 'https://github.com/yaGeey/spotube'
+const githubUrl = 'https://github.com/yaGeey/Astolfik'
 
 const idleStatus = {
    ...defaultStatus,
    details: 'Idle',
    state: 'Browsing...',
+   large_image: 'astolfik',
+   large_url: githubUrl,
+   status_display_type: 0,
 }
 
 let currentStartTime: number | null = null
@@ -106,7 +109,7 @@ export const discordRpcRouter = router({
          details: `Viewing Artist`,
          details_url: githubUrl,
          state: a.name,
-         state_url: a.external_urls?.spotify,
+         // state_url: a.external_urls?.spotify,
          status_display_type: 1,
          assets: {
             large_image: a.images?.[0]?.url,
@@ -146,7 +149,7 @@ export const discordRpcRouter = router({
                large_url: p.url,
             }),
             ...(p.origin === 'LOCAL' && {
-               large_url: 'https://github.com/yaGeey/spotube',
+               large_url: 'https://github.com/yaGeey/Astolfik',
             }),
          },
       })

@@ -1,6 +1,6 @@
 import React from 'react'
 import Button from '../components/Button'
-import { trpc } from '../utils/trpc'
+import { trpc, vanillaTrpc } from '../utils/trpc'
 import { MutateOptions } from '@tanstack/react-query'
 import { toastOptions } from '@/utils/toast'
 import { toast } from 'react-toastify'
@@ -107,15 +107,7 @@ function Home() {
          >
             toasts
          </Button>
-         <Button
-            onClick={() => {
-               // useAudioStore.getState().loadVideo('OiZVcLDhxG0') // why delay 4.8s?
-               useAudioStore.getState().loadVideo('U6rv5qi8-8s')
-            }}
-         >
-            Test global player
-         </Button>
-         <Button onClick={() => useAudioStore.getState().videoElement?.play()}>Resume play</Button>
+         <Button onClick={() => vanillaTrpc.spotify.oauth.mutate()}>spotify oauth</Button>
          <ul>
             {ids.map((item) => (
                <li key={item.id} onClick={() => setIds((p) => p.filter((i) => i.id !== item.id))} className="cursor-pointer">

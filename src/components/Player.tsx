@@ -11,9 +11,11 @@ import ShakaPlayerBarTrackProgress from './shaka/ShakaPlayerBarTrackProgress'
 import PlayerBarVolume from './PlayerBarVolume'
 import { is } from 'zod/v4/locales'
 import { useNavigate } from 'react-router-dom'
+import { randomTypes } from '../audio_store/slices/createHistorySlice'
+import MovingLine from './MovingLine'
 
 export default function Player() {
-   const { current, toggle, playerRef, isPlaying, next, back, randomType, updateState, videoRef, mode } = useAudioStore(
+   const { current, toggle, playerRef, isPlaying, next, back, randomTypeIdx, updateState, videoRef, mode } = useAudioStore(
       useShallow((state) => ({
          current: state.current,
          toggle: state.toggle,
@@ -21,7 +23,7 @@ export default function Player() {
          isPlaying: state.isPlaying,
          next: state.next,
          back: state.back,
-         randomType: state.randomType,
+         randomTypeIdx: state.randomTypeIdx,
          updateState: state.updateState,
          videoRef: state.videoElement,
          mode: state.mode,
@@ -81,32 +83,34 @@ export default function Player() {
                </div>
             </div>
             {/* Track Title & Artists */}
-            <div className="flex flex-col overflow-hidden">
+            <div className="flex flex-col overflow-hidden w-full">
                <span
-                  className="text-sm font-medium hover:underline cursor-pointer truncate text-text"
+                  className="text-sm w-full font-medium hover:underline cursor-pointer truncate text-text"
                   onClick={(e) => {
                      if (e.ctrlKey) vanillaTrpc.system.openExternalLink.mutate(current.url)
                      else navigate(`/spotify/album/${current.album?.id}`) // TODO page for /tracks/
                   }}
                >
-                  {current.title}
+                  <MovingLine>{current.title}</MovingLine>
                </span>
                <div className="truncate text-text-subtle">
-                  {current.artists.map((a, index) => (
-                     <span key={a.name + index}>
-                        <span
-                           className="text-xs hover:underline cursor-pointer truncate hover:text-text transition-colors"
-                           onClick={(e) => {
-                              if (e.ctrlKey && a.url) {
-                                 vanillaTrpc.system.openExternalLink.mutate(a.url)
-                              } else navigate(`/spotify/artist/${encodeURIComponent(a.name)}`)
-                           }}
-                        >
-                           {a.name}
+                  <MovingLine>
+                     {current.artists.map((a, index) => (
+                        <span key={a.name + index}>
+                           <span
+                              className="text-xs hover:underline cursor-pointer truncate hover:text-text transition-colors"
+                              onClick={(e) => {
+                                 if (e.ctrlKey && a.url) {
+                                    vanillaTrpc.system.openExternalLink.mutate(a.url)
+                                 } else navigate(`/spotify/artist?id=${a.id}`)
+                              }}
+                           >
+                              {a.name}
+                           </span>
+                           {index < current.artists.length - 1 && ', '}
                         </span>
-                        {index < current.artists.length - 1 && ', '}
-                     </span>
-                  ))}
+                     ))}
+                  </MovingLine>
                </div>
             </div>
             {/* <button className="ml-4 text-text-subtle hover:text-text transition-colors">
@@ -118,11 +122,11 @@ export default function Player() {
          <div className="flex flex-col items-center max-w-[40%] w-full">
             <div className="flex items-center gap-6 mb-2">
                <button
-                  className={twMerge('text-text-subtle hover:text-text transition-colors', randomType && 'text-accent')}
+                  className={twMerge('text-text-subtle hover:text-text transition-colors', !!randomTypeIdx && 'text-accent')}
                   title="Shuffle"
-                  onClick={() => updateState({ randomType: randomType === 'true' ? null : 'true' })}
+                  onClick={() => updateState({ randomTypeIdx: (randomTypeIdx + 1) % randomTypes.length })}
                >
-                  <span className="text-[10px]">{randomType}</span>
+                  <span className="text-[10px]">{randomTypes[randomTypeIdx]}</span>
                   <ShuffleIcon className="w-4 h-4" />
                </button>
                <button className="text-text-subtle hover:text-text transition-colors" title="Previous" onClick={back}>

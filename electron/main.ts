@@ -28,13 +28,15 @@ app.disableHardwareAcceleration()
 app.commandLine.appendSwitch('disable-http-cache')
 app.commandLine.appendSwitch('disk-cache-size', '0')
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled')
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+app.commandLine.appendSwitch('disable-gpu-program-cache')
 
 if (process.defaultApp) {
    if (process.argv.length >= 2) {
-      app.setAsDefaultProtocolClient('spotube', process.execPath, [path.resolve(process.argv[1])])
+      app.setAsDefaultProtocolClient('astolfik', process.execPath, [path.resolve(process.argv[1])])
    }
 } else {
-   app.setAsDefaultProtocolClient('spotube')
+   app.setAsDefaultProtocolClient('astolfik')
 }
 
 if (process.platform === 'win32') {
@@ -45,7 +47,7 @@ function createWindow() {
    win = new BrowserWindow({
       width: 1200,
       height: 800,
-      icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+      icon: path.join(process.env.VITE_PUBLIC, 'Astolfik.ico'),
       webPreferences: {
          preload: path.join(__dirname, 'preload.mjs'),
          webSecurity: false, // Вимикаємо для CORS (потрібно для GoogleVideo)

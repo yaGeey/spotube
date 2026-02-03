@@ -21,14 +21,11 @@ import { SimplifiedTrack, Track } from '@spotify/web-api-ts-sdk'
 import InfoCellSpotify from './InfoCellSpotify'
 import { fromSpotifyToCurrent } from '@/src/utils/currentTrackAdapters'
 import { TableSpotifyFilterContext } from './TableSpotifyContext'
+import useContextMenu from '@/src/hooks/useContextMenu'
+import { trpc, vanillaTrpc } from '@/src/utils/trpc'
+import ContextMenu, { ContextMenuItem } from '../ContextMenu'
 const GRID_TEMPLATE = '50px minmax(300px, 1fr) 120px 80px 200px'
 
-// type SpotifyTrack = Omit<SimplifiedTrack | Track, 'artists'> & {
-//    lastFM: PrismaJson.LastFMTrack | null
-//    artists: ((Artist | SimplifiedArtist) & {
-//       lastFM: PrismaJson.LastFMArtist | null
-//    })[]
-// }
 export type SpotifyTrack = SimplifiedTrack | Track
 
 const columnHelper = createColumnHelper<SpotifyTrack>()
@@ -91,7 +88,6 @@ export default function SpotifyTracksTable({ data }: { data: SpotifyTrack[] }) {
       state: {
          sorting,
          columnFilters,
-         // columnPinning: { left: ['info'] },
       },
       onSortingChange: setSorting,
       onColumnFiltersChange: setColumnFilters,
@@ -118,8 +114,40 @@ export default function SpotifyTracksTable({ data }: { data: SpotifyTrack[] }) {
       }
    }, [setTracks, table.getFilteredRowModel().rows])
 
+   // context menu
+   const { handleContextMenu, left, top, isOpen } = useContextMenu()
+   const [menuItems, setMenuItems] = React.useState<ContextMenuItem[]>([])
+   const plQuery = trpc.spotify.getPlaylists.useQuery()
+   const getContextMenuItems = React.useCallback(
+      (t: SpotifyTrack) => {
+         setMenuItems([
+            {
+               name: 'Open in Spotify',
+               function: () => vanillaTrpc.system.openExternalLink.mutate(`https://open.spotify.com/track/${t.id}`),
+            },
+            ...(plQuery.data
+               ? [
+                    {
+                       name: 'Add to playlist',
+                       items: plQuery.data.map((pl) => ({
+                          name: pl.title,
+                          function: () =>
+                             vanillaTrpc.spotify.addTracksToPlaylist.mutate({
+                                playlistId: pl.spotifyMetadataId!,
+                                trackUris: [`spotify:track:${t.id}`],
+                             }),
+                       })),
+                    },
+                 ]
+               : []),
+         ])
+      },
+      [plQuery.data],
+   )
+
    return (
       <TableSpotifyFilterContext.Provider value={columnFilters}>
+         {isOpen && <ContextMenu items={menuItems} top={top} left={left} />}
          <div ref={parentRef} className="h-[calc(100dvh-200px)] overflow-auto w-full relative">
             <div
                className="sticky py-2 top-0 z-10 bg-main-lighter border-b border-white/10 text-text-subtle text-xs font-medium uppercase tracking-wider"
@@ -156,6 +184,8 @@ export default function SpotifyTracksTable({ data }: { data: SpotifyTrack[] }) {
                         play={play}
                         index={index}
                         isYtLoading={isYtLoading}
+                        handleContextMenu={handleContextMenu}
+                        getContextMenuItems={getContextMenuItems}
                      />
                   )
                })}
@@ -171,12 +201,16 @@ const VirtualizedRow = React.memo(
       virtualRow,
       play,
       isYtLoading,
+      handleContextMenu,
+      getContextMenuItems,
    }: {
       row: Row<SimplifiedTrack>
       virtualRow: any
       play: (track: any) => void
       index: number
       isYtLoading: boolean
+      handleContextMenu: (e: React.MouseEvent) => void
+      getContextMenuItems: (t: SpotifyTrack) => void
    }) => {
       const isPlaying = useAudioStore((state) => state.current?.id === row.original.id)
 
@@ -193,6 +227,10 @@ const VirtualizedRow = React.memo(
                gridTemplateColumns: GRID_TEMPLATE,
             }}
             onDoubleClick={() => play({ track: fromSpotifyToCurrent(row.original) })}
+            onContextMenu={(e) => {
+               getContextMenuItems(row.original)
+               handleContextMenu(e)
+            }}
          >
             {row.getVisibleCells().map((cell) => (
                <div key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>

@@ -19,31 +19,34 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import TagsCell from './TagsCell'
 import InfoCell from './InfoCell'
 import { TableFiltersContext } from './TableContext'
-import { trpc } from '@/src/utils/trpc'
+import { trpc, vanillaTrpc } from '@/src/utils/trpc'
 import StatusCell from './StatusCell'
 import { faClock } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { fromDBToCurrent } from '@/src/utils/currentTrackAdapters'
+import useContextMenu from '@/src/hooks/useContextMenu'
+import ContextMenu, { ContextMenuItem } from '../ContextMenu'
+import { CombinedPlaylistForDisplay } from '@/src/routes/Playlist'
 const GRID_TEMPLATE = '50px minmax(300px, 1fr) 120px 80px 200px'
 
 const columnHelper = createColumnHelper<PlaylistItemWithRelations>()
 
-export default function TracksTable({ data, playlistId }: { data: PlaylistItemWithRelations[]; playlistId: number }) {
+export default function TracksTable({ combPl }: { combPl: CombinedPlaylistForDisplay }) {
    const play = useAudioStore((state) => state.play)
    const current = useAudioStore((state) => state.current)
    const setTracks = useAudioStore((state) => state.setTracks)
    const isYtLoading = useAudioStore((state) => state.isYtLoading)
 
+   const isSingle = combPl.type === 'single'
+   const data = useMemo(() => combPl?.playlists.flatMap((pl) => pl.playlistItems) || [], [combPl])
+
    const utils = trpc.useUtils()
-   const deleteTracks = trpc.playlists.deleteTracks.useMutation({
+   const deleteSpotifyTracks = trpc.spotify.deleteTracksFromPlaylist.useMutation({
       onSuccess: () => {
-         utils.playlists.getById.invalidate(playlistId)
-         utils.combinedPlaylists.getById.invalidate(playlistId)
+         if (isSingle) utils.playlists.getById.invalidate(combPl.id)
+         else utils.combinedPlaylists.getById.invalidate(combPl.id)
       },
    })
-   function handleDeleteTrack(trackId: number) {
-      confirm('Delete track?') && deleteTracks.mutate({ playlistId, tracksIds: [trackId] })
-   }
 
    const [sorting, setSorting] = useState<SortingState>([])
    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -151,7 +154,6 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
       state: {
          sorting,
          columnFilters,
-         // columnPinning: { left: ['info'] },
       },
       onSortingChange: setSorting,
       onColumnFiltersChange: setColumnFilters,
@@ -179,8 +181,56 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
       }
    }, [setTracks, table.getFilteredRowModel().rows])
 
+   // context menu
+   const { handleContextMenu, left, top, isOpen } = useContextMenu()
+   const [menuItems, setMenuItems] = React.useState<ContextMenuItem[]>([])
+   const plQuery = trpc.spotify.getPlaylists.useQuery()
+   const getContextMenuItems = React.useCallback(
+      (t: PlaylistItemWithRelations) => {
+         setMenuItems([
+            {
+               name: 'Open in Spotify',
+               function: () => vanillaTrpc.system.openExternalLink.mutate(`https://open.spotify.com/track/${t.id}`),
+            },
+            // TODO currently only for spotify tracks in single playlist to single spotify, not for combined
+            ...(plQuery.data && t.track.spotify
+               ? [
+                    {
+                       name: 'Add to playlist',
+                       items: plQuery.data
+                          .filter((pl) => combPl.id !== pl.id && pl.origin === 'SPOTIFY')
+                          .map((pl) => ({
+                             name: pl.title,
+                             function: () =>
+                                vanillaTrpc.spotify.addTracksToPlaylist.mutate({
+                                   playlistId: pl.spotifyMetadataId!,
+                                   trackUris: [`spotify:track:${t.track.spotify?.id}`],
+                                }),
+                          })),
+                    },
+                 ]
+               : []),
+            // TODO currently if playlist is single and from spotify
+            ...(t.track.spotify && combPl.type === 'single' && combPl.playlists[0].origin === 'SPOTIFY'
+               ? [
+                    {
+                       name: 'Delete from Spotify Library',
+                       function: () =>
+                          deleteSpotifyTracks.mutate({
+                             playlistId: combPl.playlists[0].spotifyMetadataId!,
+                             tracksUris: [`spotify:track:${t.track.spotify?.id}`],
+                          }),
+                    },
+                 ]
+               : []),
+         ])
+      },
+      [plQuery.data, combPl, deleteSpotifyTracks],
+   )
+
    return (
       <TableFiltersContext.Provider value={columnFilters}>
+         {isOpen && <ContextMenu left={left} top={top} items={menuItems} />}
          <div ref={parentRef} className="h-[calc(100dvh-200px)] overflow-auto w-full relative">
             <div
                className="sticky py-2 top-0 z-10 bg-main-lighter border-b border-white/10 text-text-subtle text-xs font-medium uppercase tracking-wider"
@@ -217,7 +267,8 @@ export default function TracksTable({ data, playlistId }: { data: PlaylistItemWi
                         play={play}
                         index={index}
                         isYtLoading={isYtLoading}
-                        handleDeleteTrack={handleDeleteTrack}
+                        getContextMenuItems={getContextMenuItems}
+                        handleContextMenu={handleContextMenu}
                      />
                   )
                })}
@@ -233,14 +284,16 @@ const VirtualizedRow = React.memo(
       virtualRow,
       play,
       isYtLoading,
-      handleDeleteTrack,
+      getContextMenuItems,
+      handleContextMenu,
    }: {
       row: Row<PlaylistItemWithRelations>
       virtualRow: any
       play: (track: any) => void
       index: number
       isYtLoading: boolean
-      handleDeleteTrack: (trackId: number) => void
+      getContextMenuItems: (t: PlaylistItemWithRelations) => void
+      handleContextMenu: (e: React.MouseEvent, t: PlaylistItemWithRelations) => void
    }) => {
       const isPlaying = useAudioStore((state) => state.current?.id === row.original.trackId)
 
@@ -257,7 +310,10 @@ const VirtualizedRow = React.memo(
                gridTemplateColumns: GRID_TEMPLATE,
             }}
             onDoubleClick={() => play({ track: fromDBToCurrent(row.original.track) })}
-            onContextMenu={() => handleDeleteTrack(row.original.track.id)}
+            onContextMenu={(e) => {
+               getContextMenuItems(row.original)
+               handleContextMenu(e, row.original)
+            }}
          >
             {row.getVisibleCells().map((cell) => (
                <div key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>

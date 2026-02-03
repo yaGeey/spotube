@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 import { Prisma, PrismaClient } from '@/generated/prisma/client'
 import chalk from 'chalk'
+import { DefaultArgs } from '@prisma/client/runtime/client'
 
 const connectionString = `${process.env.DATABASE_URL}`
 
@@ -17,7 +18,7 @@ export const trackWithRelations = {
    },
    genius: true,
    lastFM: true,
-   artists: true
+   artists: true,
 } satisfies Prisma.MasterTrackInclude
 
 export const playlistWithDeepRelations = {
@@ -45,6 +46,9 @@ export type PlaylistItemWithRelations = Prisma.PlaylistItemGetPayload<{
       }
    }
 }>
+export type CombinedPlaylistWithContent = Prisma.CombinedPlaylistGetPayload<{
+   include: { playlists: { include: typeof playlistWithDeepRelations } }
+}>
 
 export const cleanOrpanedMasterTracks = async (tracksIds: number[]) => {
    const orphanedTracks = await prisma.masterTrack.findMany({
@@ -63,5 +67,23 @@ export const cleanOrpanedMasterTracks = async (tracksIds: number[]) => {
       })
       console.log(chalk.gray(`Cleaned up ${orphanedTracks.length} orphaned MasterTracks`))
    }
-
+}
+type tx = Omit<PrismaClient<never, undefined, DefaultArgs>, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>
+export const deleteMasterTracksByPlaylistId = async (playlistId: number, tx: PrismaClient | tx) => {
+   const tracksToDelete = await tx.masterTrack.findMany({
+      where: {
+         playlistItems: {
+            every: { playlistId },
+            some: { playlistId },
+         },
+      },
+   })
+   // delete MasterTracks
+   if (!tracksToDelete.length) return console.log(chalk.yellow('No MasterTracks to delete'))
+   console.log(chalk.blue(`Found ${tracksToDelete.length} tracks to delete`))
+   await tx.masterTrack.deleteMany({
+      where: {
+         id: { in: tracksToDelete.map((t) => t.id) },
+      },
+   })
 }

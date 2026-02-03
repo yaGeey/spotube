@@ -8,6 +8,7 @@ import { lastFMRouter } from './routers/api/lastfm'
 import { systemRouter } from './routers/system'
 import geniusRouter from './routers/api/genius'
 import { combinedPlaylistsRouter } from './routers/combinedPlaylists'
+import { spotifyOAuthRouter } from './routers/api/spotify-oauth'
 // import { ytStreamsRouter } from './routers/ytStreams'
 
 export const appRouter = router({
@@ -18,6 +19,7 @@ export const appRouter = router({
 
    discord: discordRpcRouter,
    spotify: spotifyRouter,
+   spotifyUser: spotifyOAuthRouter,
    yt: youtubeRouter,
    // ytStreams: ytStreamsRouter,
    lastfm: lastFMRouter,

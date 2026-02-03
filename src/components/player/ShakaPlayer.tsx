@@ -1,4 +1,6 @@
 import { useAudioStore } from '@/src/audio_store/useAudioStore'
+import { faExpand } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import React, { useEffect, useRef } from 'react'
 import shaka from 'shaka-player/dist/shaka-player.ui'
 
@@ -8,6 +10,7 @@ function ShakaPlayer() {
 
    const updateState = useAudioStore((state) => state.updateState)
    const mode = useAudioStore((state) => state.mode)
+   const isPip = useAudioStore((state) => state.isPip)
 
    useEffect(() => {
       const init = async () => {
@@ -21,7 +24,7 @@ function ShakaPlayer() {
             ui.configure({
                addBigPlayButton: false,
                // prettier-ignore
-               overflowMenuButtons: ['captions', 'quality', 'language', 'chapter', 'picture_in_picture', 'playback_rate', 'loop', 'toggle_stereoscopic', 'save_video_frame'],
+               overflowMenuButtons: ['captions', 'quality', 'language', 'chapter', 'playback_rate', 'loop', 'toggle_stereoscopic', 'save_video_frame'],
                customContextMenu: true,
             })
 
@@ -44,6 +47,16 @@ function ShakaPlayer() {
    }, [updateState, mode])
    return (
       <div ref={containerRef} className="relative w-full aspect-video bg-black group overflow-hidden">
+         {isPip && (
+            <FontAwesomeIcon
+               icon={faExpand}
+               className="text-white text-xl p-2 z-10000"
+               onClick={(e) => {
+                  e.stopPropagation()
+                  useAudioStore.setState((p) => ({ isPip: !p.isPip }))
+               }}
+            />
+         )}
          <video
             ref={videoRef}
             className="w-full h-full"

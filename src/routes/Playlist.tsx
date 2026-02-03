@@ -6,25 +6,22 @@ import TracksTable from '../components/table/Table'
 import { useLocation, useParams } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { Prisma } from '@/generated/prisma/client'
-import { playlistWithDeepRelations } from '@/electron/lib/prisma'
+import { CombinedPlaylistWithContent, playlistWithDeepRelations } from '@/electron/lib/prisma'
 import TableDropZone from '../components/table/DropZone'
 import DndAddYtContext from '../components/DndAddYtContext'
 import VideoSlot from '../components/player/VideoSlot'
+import { PlaylistType } from '../components/nav/Playlists'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
 const youtubePlaylistId = 'PLnYVx6d3vk609QDKMgBE52tDqP7fRi1pE'
-
-type CombinedPlaylistWithContent = Prisma.CombinedPlaylistGetPayload<{
-   include: { playlists: { include: typeof playlistWithDeepRelations } }
-}>
+export type CombinedPlaylistForDisplay = CombinedPlaylistWithContent & { type: PlaylistType }
 
 export default function Playlist() {
    const { id } = useParams()
    const playlistId = id ? parseInt(id) : 0
    const location = useLocation()
-   const isCombined = Boolean(new URLSearchParams(location.search).get('combined'))
-   const [selectedPanel, setSelectedPanel] = useState<'info' | 'yt'>('yt')
+   const plType = new URLSearchParams(location.search).get('type') as PlaylistType
 
    const { play, stop, updateState, tracks, mode } = useAudioStore(
       useShallow((state) => ({
@@ -46,27 +43,32 @@ export default function Playlist() {
    const lastFMMutation = trpc.lastfm.upsertBatchFromMasterTracks.useMutation({ onSuccess })
    const syncSpotifyMutation = trpc.spotify.upsertPlaylistWithTracks.useMutation({ onSuccess })
 
-   // TODO fetch only one
-   const playlistRes = trpc.playlists.getById.useQuery(playlistId)
-   const combinedPlaylistRes = trpc.combinedPlaylists.getById.useQuery(playlistId)
+   const playlistRes = trpc.playlists.getById.useQuery(playlistId, { enabled: plType === 'local' })
+   const combinedPlaylistRes = trpc.combinedPlaylists.getById.useQuery(playlistId, { enabled: plType === 'combined' })
+   // now only with ouath, add no oauth for not private playlists
+   const onlineSpotifyPlaylistRes = trpc.spotifyUser.getPlaylistById.useQuery(playlistId.toString(), {
+      enabled: plType === 'spotify',
+   })
 
    const combinedPlaylist = useMemo(() => {
-      if (isCombined && combinedPlaylistRes.data) {
-         return combinedPlaylistRes.data satisfies CombinedPlaylistWithContent
-      } else if (playlistRes.data) {
+      if (plType === 'combined' && combinedPlaylistRes.data) {
+         return { ...combinedPlaylistRes.data, type: 'combined' } satisfies CombinedPlaylistForDisplay
+      } else if (plType === 'local' && playlistRes.data) {
          return {
+            type: 'local',
+            id: playlistRes.data.id,
             thumbnailUrl: playlistRes.data.thumbnailUrl ?? null,
             title: playlistRes.data.title,
             description: playlistRes.data.description ?? null,
             updatedAt: playlistRes.data.updatedAt ? new Date(playlistRes.data.updatedAt) : new Date(),
             createdAt: playlistRes.data.createdAt ? new Date(playlistRes.data.createdAt) : new Date(),
             playlists: playlistRes.data ? [playlistRes.data] : [],
-         } as Omit<CombinedPlaylistWithContent, 'id'>
+         } satisfies CombinedPlaylistForDisplay
       } else {
          // loading
          return null
       }
-   }, [isCombined, combinedPlaylistRes.data, playlistRes.data])
+   }, [plType, combinedPlaylistRes.data, playlistRes.data])
 
    // discord rpc
    useEffect(() => {
@@ -94,22 +96,34 @@ export default function Playlist() {
    const isLocal = isSingle && combinedPlaylist.playlists[0].origin === 'LOCAL'
 
    // check for spotify playlist updates
-   const checkedPlaylistsRef = useRef(new Set<string>())
+   const snapshotQueries = trpc.useQueries((t) =>
+      spotifyPlaylists.map((pl) =>
+         t.spotify.getSnapshotId(pl.spotifyMetadataId!, {
+            enabled: Boolean(pl.spotifyMetadataId),
+            refetchOnWindowFocus: true,
+            refetchInterval: 1000 * 60,
+         }),
+      ),
+   )
    useEffect(() => {
-      if (!spotifyPlaylists) return
-      spotifyPlaylists.forEach((pl) => {
-         if (checkedPlaylistsRef.current.has(pl.spotifyMetadataId!)) return
-         const lastUpdate = new Date(pl.updatedAt).getTime()
-         const isStale = Date.now() - lastUpdate > 60 * 1000
-         // 1 minute cache
-         if (isStale && !syncSpotifyMutation.isPending) {
-            checkedPlaylistsRef.current.add(pl.spotifyMetadataId!)
-            syncSpotifyMutation.mutate(pl.spotifyMetadataId!)
+      snapshotQueries.forEach((q) => q.refetch())
+   }, [playlistId])
+
+   const checkedPlaylists = useRef<Set<number>>(new Set())
+   useEffect(() => {
+      if (!spotifyPlaylists.length) return
+      spotifyPlaylists.forEach((pl, i) => {
+         if (snapshotQueries[i].data && pl.spotifyMetadata?.snapshotId !== snapshotQueries[i].data) {
+            // TODO chefk for each playlist instead of global mutation check
+            if (!syncSpotifyMutation.isPending && !checkedPlaylists.current.has(pl.id)) {
+               syncSpotifyMutation.mutate(pl.spotifyMetadataId!)
+               checkedPlaylists.current.add(pl.id)
+            }
          }
       })
-   }, [spotifyPlaylists, syncSpotifyMutation])
+      checkedPlaylists.current.clear()
+   }, [spotifyPlaylists, snapshotQueries.map((q) => q.data).join(',')])
 
-   const items = useMemo(() => combinedPlaylist?.playlists.flatMap((pl) => pl.playlistItems) || [], [combinedPlaylist])
    // last fm sync
    // useEffect(() => {
    //    if (items.length > 0) {
@@ -143,7 +157,9 @@ export default function Playlist() {
                </Button>
                <Button
                   onClick={async () => {
-                     const data = await lastFMMutation.mutateAsync(items.map((item) => item.track))
+                     const data = await lastFMMutation.mutateAsync(
+                        (combinedPlaylist?.playlists.flatMap((pl) => pl.playlistItems) || []).map((item) => item.track),
+                     )
                      if (data) alert('LastFM data upserted. Reload the page')
                   }}
                >
@@ -160,9 +176,9 @@ export default function Playlist() {
             </div>
          </div>
          <VideoSlot />
-         {items && (
+         {combinedPlaylist && (
             <TableDropZone>
-               <TracksTable data={items} playlistId={playlistId} />
+               <TracksTable combPl={combinedPlaylist} />
             </TableDropZone>
          )}
       </DndAddYtContext>

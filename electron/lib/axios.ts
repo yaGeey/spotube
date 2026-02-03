@@ -38,7 +38,7 @@ export function logPrettyError(error: unknown) {
 
 const api = axios.create({
    // headers: {
-   //    'User-Agent': 'Spotube',
+   //    'User-Agent': 'Astolfik',
    // },
 })
 api.interceptors.response.use(
@@ -46,6 +46,6 @@ api.interceptors.response.use(
    (error) => {
       logPrettyError(error)
       return Promise.reject(error)
-   }
+   },
 )
 export default api

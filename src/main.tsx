@@ -11,15 +11,26 @@ import { ipcLink } from 'electron-trpc/renderer'
 import superjson from 'superjson'
 import 'react-toastify/dist/ReactToastify.css'
 import 'shaka-player/dist/controls.css'
+import { TRPCClientError } from '@trpc/client'
 
 export const queryClient = new QueryClient({
    defaultOptions: {
       queries: {
          staleTime: Infinity,
+         retry(failureCount, error) {
+            if (error instanceof TRPCClientError) {
+               const status = error.data?.httpStatus
+               if (status && status >= 500) {
+                  return failureCount < 3
+               }
+            }
+            return false
+         },
       },
    },
    queryCache: new QueryCache({
       onError: (error: any) => {
+         console.log('query error:', error)
          toast.error(`An error occurred: ${error.message || 'Unknown error'}`)
       },
    }),

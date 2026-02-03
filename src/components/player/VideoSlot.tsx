@@ -45,6 +45,7 @@ export default function VideoSlot() {
 
             const rect = slotRef.current.getBoundingClientRect()
 
+            absoluteContainer.style.transform = 'none' // remove framer-motion drag transform
             absoluteContainer.style.left = `${rect.left}px`
             absoluteContainer.style.top = `${rect.top}px`
             absoluteContainer.style.width = `${rect.width}px`
@@ -53,9 +54,15 @@ export default function VideoSlot() {
       }
 
       syncPos() // init pos
+      const rafId = requestAnimationFrame(() => {
+         syncPos()
+         requestAnimationFrame(syncPos)
+      }) // framer motion adds transform in the next frame
+
       window.addEventListener('resize', syncPos)
       window.addEventListener('scroll', syncPos, true)
       return () => {
+         cancelAnimationFrame(rafId)
          window.removeEventListener('resize', syncPos)
          window.removeEventListener('scroll', syncPos, true)
 

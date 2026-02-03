@@ -5,6 +5,7 @@ import pLimit from 'p-limit'
 import chalk from 'chalk'
 import prisma, { TrackWithRelations } from '../../lib/prisma'
 import { LastFM, Prisma } from '@/generated/prisma/client'
+import { ViewTrackModel } from '@/src/utils/currentTrackAdapters'
 const limit = pLimit(10)
 
 export const lastFMRouter = router({
@@ -103,4 +104,16 @@ export const lastFMRouter = router({
          )
          return results
       }),
+   
+   getDataForCurrent: publicProcedure.input(z.custom<ViewTrackModel>()).query(async ({ input: c }) => {
+      const artists = []
+      for (const artist of c.artists) {
+         const lastFMArtist =  await getLastFMArtist(artist.name)
+         if (lastFMArtist) artists.push(lastFMArtist)
+      }
+      const artistForSearch = c.artists[0]?.name || artists[0]?.name || ''
+      const track = await getLastFMTrack(artistForSearch, c.title)
+      const album = c.album?.name ? await getLastFMAlbum(artistForSearch, c.album.name) : null
+      return { track, album, artists }
+   })
 })

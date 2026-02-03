@@ -18,8 +18,8 @@ import { trpc, vanillaTrpc } from '../../utils/trpc'
 import { Link, useLocation } from 'react-router-dom'
 import SpotifyTracksTable from '@/src/components/spotifyTable/TableSpotify'
 import Loading from '@/src/components/states/Loading'
-import Error from '@/src/components/states/Error'
 import VideoSlot from '@/src/components/player/VideoSlot'
+import ErrorDisplay from '@/src/components/states/ErrorDisplay'
 
 const formatNumber = (num: number) => {
    return new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(num)
@@ -38,9 +38,9 @@ const SpotifyArtist = () => {
       if (data?.artist) vanillaTrpc.discord.lookingAtSpotifyArtist.mutate(data?.artist)
    }, [data?.artist])
 
-   if (!artistId) return <Error msg="No artist ID provided in the URL." />
+   if (!artistId) return <ErrorDisplay error="No artist ID provided in the URL." />
    if (isLoading) return <Loading />
-   if (error || !data) return <Error msg={error?.message} />
+   if (error || !data) return <ErrorDisplay error={error} />
 
    const { artist, topTracks, albums } = data
    const headerImage = artist.images?.[0]?.url

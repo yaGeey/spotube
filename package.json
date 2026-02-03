@@ -1,5 +1,5 @@
 {
-   "name": "spotube",
+   "name": "Astolfik",
    "private": true,
    "version": "0.0.1",
    "type": "module",
@@ -13,13 +13,13 @@
       "postinstall": "electron-builder install-app-deps"
    },
    "build": {
-      "appId": "com.spotube.app",
-      "productName": "Spotube",
+      "appId": "com.astolfik.app",
+      "productName": "Astolfik",
       "publish": [
          {
             "provider": "github",
             "owner": "yaGeey",
-            "repo": "spotube"
+            "repo": "Astolfik"
          }
       ],
       "directories": {
@@ -87,6 +87,7 @@
       "duck-duck-scrape": "^2.2.7",
       "electron-store": "^11.0.2",
       "electron-trpc": "^0.7.1",
+      "framer-motion": "^12.29.2",
       "genius-lyrics": "^4.4.7",
       "googleapis": "^166.0.0",
       "googlevideo": "^4.0.4",

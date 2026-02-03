@@ -54,7 +54,7 @@ export type ViewTrackModel = {
       releaseDate: string
    } | null
 
-   lastFM: Omit<LastFM, 'artist'> | null
+   lastFM: Omit<LastFM, 'id' | 'masterTrackId'> | null
    defaultYtVideoId: string | null
    yt: YoutubeVideo[]
 } & (
@@ -83,7 +83,7 @@ export function fromDBToCurrent(item: TrackWithRelations, playingFrom?: string):
          source: a.spotifyId ? 'SPOTIFY' : 'YOUTUBE',
          name: a.name,
          url: a.spotifyId ? `https://open.spotify.com/artist/${a.spotifyId}` : `https://www.youtube.com/channel/${a.ytChannelId}`,
-         lastFM: a.lastFM,
+         lastFM: a.lastFM ?? t.lastFM?.artist ?? null,
       })),
       thumbnailUrl: t.thumbnailUrl,
       playingFromPage: playingFrom ?? '/',

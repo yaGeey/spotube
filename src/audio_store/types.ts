@@ -3,8 +3,6 @@ import { YoutubeVideo } from '@/generated/prisma/client'
 import type shaka from 'shaka-player/dist/shaka-player.ui'
 import BasePlayer from '../player/BasePlayerAdapter'
 import { ViewTrackModel } from '../utils/currentTrackAdapters'
-type RandomType = null | 'true' | 'leastPlayedAllTime' | 'leastPlayedNow'
-
 // videoRef - shaka player video element reference
 // playerRef - youtube iframe reference
 
@@ -44,7 +42,7 @@ export interface HistorySlice {
    next: () => void
    addToHistory: (track: ViewTrackModel) => void
    clearHistory: () => void
-   randomType: RandomType
+   randomTypeIdx: number
 }
 
 export type PlayerSlice = {

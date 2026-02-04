@@ -13,7 +13,7 @@ import {
 import { twMerge } from 'tailwind-merge'
 import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import { formatDuration, formatRelativeTime } from '../../utils/time'
-import { PlaylistItemWithRelations } from '@/electron/lib/prisma'
+import { PlaylistItemWithRelations, PlaylistWithItems } from '@/electron/lib/prisma'
 import { getUserLanguageScript } from '../../utils/userLanguageScript'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import TagsCell from './TagsCell'
@@ -26,25 +26,23 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { fromDBToCurrent } from '@/src/utils/currentTrackAdapters'
 import useContextMenu from '@/src/hooks/useContextMenu'
 import ContextMenu, { ContextMenuItem } from '../ContextMenu'
-import { CombinedPlaylistForDisplay } from '@/src/routes/Playlist'
+import { addFromSpotifyToPlaylistMenuItem } from '@/src/lib/contextMenuItems'
 const GRID_TEMPLATE = '50px minmax(300px, 1fr) 120px 80px 200px'
 
 const columnHelper = createColumnHelper<PlaylistItemWithRelations>()
 
-export default function TracksTable({ combPl }: { combPl: CombinedPlaylistForDisplay }) {
+export default function TracksTable({ playlist }: { playlist: PlaylistWithItems }) {
    const play = useAudioStore((state) => state.play)
    const current = useAudioStore((state) => state.current)
    const setTracks = useAudioStore((state) => state.setTracks)
    const isYtLoading = useAudioStore((state) => state.isYtLoading)
 
-   const isSingle = combPl.type === 'single'
-   const data = useMemo(() => combPl?.playlists.flatMap((pl) => pl.playlistItems) || [], [combPl])
-
    const utils = trpc.useUtils()
-   const deleteSpotifyTracks = trpc.spotify.deleteTracksFromPlaylist.useMutation({
+   const deleteSpotifyTracks = trpc.spotifyUser.deleteTracksFromPlaylist.useMutation({
       onSuccess: () => {
-         if (isSingle) utils.playlists.getById.invalidate(combPl.id)
-         else utils.combinedPlaylists.getById.invalidate(combPl.id)
+         utils.playlists.getById.invalidate(playlist.id)
+         // if (type === 'local') utils.playlists.getById.invalidate(pla.id)
+         // else utils.combinedPlaylists.getById.invalidate(combPl.id)
       },
    })
 
@@ -148,7 +146,7 @@ export default function TracksTable({ combPl }: { combPl: CombinedPlaylistForDis
 
    const parentRef = useRef<HTMLDivElement>(null)
    const table = useReactTable({
-      data,
+      data: playlist.playlistItems,
       columns,
       getCoreRowModel: getCoreRowModel(),
       state: {
@@ -195,29 +193,21 @@ export default function TracksTable({ combPl }: { combPl: CombinedPlaylistForDis
             // TODO currently only for spotify tracks in single playlist to single spotify, not for combined
             ...(plQuery.data && t.track.spotify
                ? [
-                    {
-                       name: 'Add to playlist',
-                       items: plQuery.data
-                          .filter((pl) => combPl.id !== pl.id && pl.origin === 'SPOTIFY')
-                          .map((pl) => ({
-                             name: pl.title,
-                             function: () =>
-                                vanillaTrpc.spotify.addTracksToPlaylist.mutate({
-                                   playlistId: pl.spotifyMetadataId!,
-                                   trackUris: [`spotify:track:${t.track.spotify?.id}`],
-                                }),
-                          })),
-                    },
+                    addFromSpotifyToPlaylistMenuItem({
+                       currentPlId: playlist.id,
+                       trackId: t.track.spotify.id,
+                       plQueryData: plQuery.data,
+                    }),
                  ]
                : []),
             // TODO currently if playlist is single and from spotify
-            ...(t.track.spotify && combPl.type === 'single' && combPl.playlists[0].origin === 'SPOTIFY'
+            ...(t.track.spotify && playlist.origin === 'SPOTIFY'
                ? [
                     {
                        name: 'Delete from Spotify Library',
                        function: () =>
                           deleteSpotifyTracks.mutate({
-                             playlistId: combPl.playlists[0].spotifyMetadataId!,
+                             playlistId: playlist.spotifyMetadataId!,
                              tracksUris: [`spotify:track:${t.track.spotify?.id}`],
                           }),
                     },
@@ -225,7 +215,7 @@ export default function TracksTable({ combPl }: { combPl: CombinedPlaylistForDis
                : []),
          ])
       },
-      [plQuery.data, combPl, deleteSpotifyTracks],
+      [plQuery.data, playlist, deleteSpotifyTracks],
    )
 
    return (

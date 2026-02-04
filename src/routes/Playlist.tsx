@@ -11,6 +11,9 @@ import TableDropZone from '../components/table/DropZone'
 import DndAddYtContext from '../components/DndAddYtContext'
 import VideoSlot from '../components/player/VideoSlot'
 import { PlaylistType } from '../components/nav/Playlists'
+import { PlaylistViewModel } from '../types/types'
+import SingleCachedPlaylistTable from '../components/table/SingleCachedPlaylistTable'
+import SpotifyPlaylistTable from '../components/table/SpotifyPlaylistTable'
 
 // const spotifyPlaylistId = '14Xkp84ZdOHvnBlccaiR3f'
 // const spotifyPlaylistId = '15aWWKnxSeQ90bLAzklH61'
@@ -45,55 +48,66 @@ export default function Playlist() {
 
    const playlistRes = trpc.playlists.getById.useQuery(playlistId, { enabled: plType === 'local' })
    const combinedPlaylistRes = trpc.combinedPlaylists.getById.useQuery(playlistId, { enabled: plType === 'combined' })
-   // now only with ouath, add no oauth for not private playlists
-   const onlineSpotifyPlaylistRes = trpc.spotifyUser.getPlaylistById.useQuery(playlistId.toString(), {
-      enabled: plType === 'spotify',
-   })
 
-   const combinedPlaylist = useMemo(() => {
+   const pl = useMemo(() => {
       if (plType === 'combined' && combinedPlaylistRes.data) {
-         return { ...combinedPlaylistRes.data, type: 'combined' } satisfies CombinedPlaylistForDisplay
+         return { data: combinedPlaylistRes.data, type: 'combined' }
       } else if (plType === 'local' && playlistRes.data) {
-         return {
-            type: 'local',
-            id: playlistRes.data.id,
-            thumbnailUrl: playlistRes.data.thumbnailUrl ?? null,
-            title: playlistRes.data.title,
-            description: playlistRes.data.description ?? null,
-            updatedAt: playlistRes.data.updatedAt ? new Date(playlistRes.data.updatedAt) : new Date(),
-            createdAt: playlistRes.data.createdAt ? new Date(playlistRes.data.createdAt) : new Date(),
-            playlists: playlistRes.data ? [playlistRes.data] : [],
-         } satisfies CombinedPlaylistForDisplay
-      } else {
-         // loading
-         return null
+         return { data: playlistRes.data, type: 'local' }
       }
-   }, [plType, combinedPlaylistRes.data, playlistRes.data])
+      return null
+   }, [plType, combinedPlaylistRes.data, playlistRes.data]) satisfies PlaylistViewModel | null
+
+   // const combinedPlaylist = useMemo(() => {
+   //    if (plType === 'combined' && combinedPlaylistRes.data) {
+   //       return { ...combinedPlaylistRes.data, type: 'combined' } satisfies CombinedPlaylistForDisplay
+   //    } else if (plType === 'local' && playlistRes.data) {
+   //       return {
+   //          type: 'local',
+   //          id: playlistRes.data.id,
+   //          thumbnailUrl: playlistRes.data.thumbnailUrl ?? null,
+   //          title: playlistRes.data.title,
+   //          description: playlistRes.data.description ?? null,
+   //          updatedAt: playlistRes.data.updatedAt ? new Date(playlistRes.data.updatedAt) : new Date(),
+   //          createdAt: playlistRes.data.createdAt ? new Date(playlistRes.data.createdAt) : new Date(),
+   //          playlists: playlistRes.data ? [playlistRes.data] : [],
+   //       } satisfies CombinedPlaylistForDisplay
+   //    } else {
+   //       // loading
+   //       return null
+   //    }
+   // }, [plType, combinedPlaylistRes.data, playlistRes.data])
 
    // discord rpc
-   useEffect(() => {
-      if (!combinedPlaylist) return
-      vanillaTrpc.discord.lookingAtPlaylist.mutate(combinedPlaylist.playlists[0])
-   }, [combinedPlaylist])
+   // useEffect(() => {
+   //    if (!combinedPlaylist) return
+   //    vanillaTrpc.discord.lookingAtPlaylist.mutate(combinedPlaylist.playlists[0])
+   // }, [combinedPlaylist])
 
    // separate playlists by origin
+   // TODO we are not handling online playlists, because need to rewrite sync logic first
    const spotifyPlaylists = useMemo(
-      () => combinedPlaylist?.playlists.filter((pl) => pl.origin === 'SPOTIFY') || [],
-      [combinedPlaylist],
+      () =>
+         pl?.type === 'combined'
+            ? pl.data.playlists.filter((pl) => pl.origin === 'SPOTIFY')
+            : pl?.type === 'local'
+              ? [pl?.data]
+              : [],
+      [pl],
    )
-   const ytPlaylists = useMemo(
-      () => combinedPlaylist?.playlists.filter((pl) => pl.origin === 'YOUTUBE') || [],
-      [combinedPlaylist],
-   )
-   const localPlaylists = useMemo(
-      () => combinedPlaylist?.playlists.filter((pl) => pl.origin === 'LOCAL') || [],
-      [combinedPlaylist],
-   )
+   // const ytPlaylists = useMemo(
+   //    () => combinedPlaylist?.playlists.filter((pl) => pl.origin === 'YOUTUBE') || [],
+   //    [combinedPlaylist],
+   // )
+   // const localPlaylists = useMemo(
+   //    () => combinedPlaylist?.playlists.filter((pl) => pl.origin === 'LOCAL') || [],
+   //    [combinedPlaylist],
+   // )
 
-   const isSingle = combinedPlaylist?.playlists.length === 1
-   const isYt = isSingle && combinedPlaylist.playlists[0].origin === 'YOUTUBE'
-   const isSpotify = isSingle && combinedPlaylist.playlists[0].origin === 'SPOTIFY'
-   const isLocal = isSingle && combinedPlaylist.playlists[0].origin === 'LOCAL'
+   // const isSingle = combinedPlaylist?.playlists.length === 1
+   // const isYt = isSingle && combinedPlaylist.playlists[0].origin === 'YOUTUBE'
+   // const isSpotify = isSingle && combinedPlaylist.playlists[0].origin === 'SPOTIFY'
+   // const isLocal = isSingle && combinedPlaylist.playlists[0].origin === 'LOCAL'
 
    // check for spotify playlist updates
    const snapshotQueries = trpc.useQueries((t) =>
@@ -131,9 +145,9 @@ export default function Playlist() {
    //    }
    // }, [items, lastFMMutation])
 
-   if (!combinedPlaylist) return <div>Loading...</div>
+   if (!pl) return <div>Loading...</div>
    return (
-      <DndAddYtContext plId={playlistId} enabled={isLocal}>
+      <DndAddYtContext plId={playlistId} enabled={pl.type === 'local'}>
          <div>
             <div className="flex gap-2">
                <Button onClick={() => play({ track: tracks[Math.round(Math.random() * tracks.length - 1)] })}>PLAY random</Button>
@@ -155,7 +169,7 @@ export default function Playlist() {
                >
                   fullscreen
                </Button>
-               <Button
+               {/* <Button
                   onClick={async () => {
                      const data = await lastFMMutation.mutateAsync(
                         (combinedPlaylist?.playlists.flatMap((pl) => pl.playlistItems) || []).map((item) => item.track),
@@ -164,7 +178,7 @@ export default function Playlist() {
                   }}
                >
                   LastFM
-               </Button>
+               </Button> */}
                <Button
                   onClick={() => {
                      if (mode === 'shaka') updateState({ mode: 'iframe' })
@@ -176,11 +190,12 @@ export default function Playlist() {
             </div>
          </div>
          <VideoSlot />
-         {combinedPlaylist && (
+         {pl.type === 'local' && (
             <TableDropZone>
-               <TracksTable combPl={combinedPlaylist} />
+               <SingleCachedPlaylistTable playlist={pl.data} />
             </TableDropZone>
          )}
+         {pl.type === 'combined' && <span>Implement for {pl.type}!</span>}
       </DndAddYtContext>
    )
 }

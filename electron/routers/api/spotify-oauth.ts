@@ -1,9 +1,10 @@
-import prisma from "@/electron/lib/prisma";
-import { handlePagination } from "@/electron/lib/spotify";
-import { router, spotifyOAuthProcedure } from "@/electron/trpc";
-import { Page } from "@spotify/web-api-ts-sdk";
-import { get } from "node:http";
-import z from "zod";
+import prisma from '@/electron/lib/prisma'
+import { handlePagination } from '@/electron/lib/spotify'
+import { router, spotifyOAuthProcedure } from '@/electron/trpc'
+import { SpotifyPlaylistWithItems } from '@/src/types/types'
+import { Page } from '@spotify/web-api-ts-sdk'
+import { get } from 'node:http'
+import z from 'zod'
 
 export const spotifyOAuthRouter = router({
    addTracksToPlaylist: spotifyOAuthProcedure
@@ -59,8 +60,8 @@ export const spotifyOAuthRouter = router({
    }),
    getPlaylistById: spotifyOAuthProcedure.input(z.string()).query(async ({ input: playlistId, ctx }) => {
       const pl = await ctx.sdk.playlists.getPlaylist(playlistId)
-      const tracks = await handlePagination(pl.tracks)
-      return { ...pl, tracks }
+      const items = await handlePagination(pl.tracks)
+      return { ...pl, items } satisfies SpotifyPlaylistWithItems
    }),
    // TODO recommendations
 

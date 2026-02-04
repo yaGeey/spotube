@@ -2,16 +2,20 @@ import { twMerge } from 'tailwind-merge'
 import { MusicIcon } from '../Icons'
 import { useAudioStore } from '@/src/audio_store/useAudioStore'
 import { useContext } from 'react'
-import { CellContext } from '@tanstack/react-table'
 import { useNavigate } from 'react-router-dom'
 import { TableSpotifyFilterContext } from './TableSpotifyContext'
 import { SpotifyTrack } from './TableSpotify'
 
-export default function InfoCellSpotify({ info }: { info: CellContext<SpotifyTrack, unknown> }) {
+export default function InfoCellSpotify({
+   track: t,
+   setFilterValue,
+}: {
+   track: SpotifyTrack
+   setFilterValue: (updater: any) => void
+}) {
    const navigate = useNavigate()
    const current = useAudioStore((state) => state.current)
 
-   const t = info.row.original
    const isPlaying = current?.id === t.id && current.source === 'SPOTIFY'
    const thumbnailUrl = 'album' in t && t.album ? (t.album.images[0]?.url ?? null) : null
 
@@ -70,9 +74,9 @@ export default function InfoCellSpotify({ info }: { info: CellContext<SpotifyTra
                                  else {
                                     if (isActive) {
                                        const newFilter = filterValue?.filter((p) => p !== a.name)
-                                       info.column.setFilterValue(newFilter)
+                                       setFilterValue(newFilter)
                                     } else {
-                                       info.column.setFilterValue([...(filterValue ?? []), a.name])
+                                       setFilterValue([...(filterValue ?? []), a.name])
                                     }
                                  }
                               }}

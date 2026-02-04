@@ -10,7 +10,7 @@ import { PlaylistWithItems } from '@/electron/lib/prisma'
 import { CombinedPlaylist } from '@/generated/prisma/client'
 import SwitchDiv from './SwitchDiv'
 
-export type PlaylistType = 'local' | 'spotify' | 'youtube' | 'combined'
+export type PlaylistType = 'local' | 'combined'
 const Playlists = () => {
    const { handleContextMenu, left, top, isOpen } = useContextMenu()
    const [menuItems, setMenuItems] = React.useState<{ name: string; function: () => void }[]>([])
@@ -70,7 +70,7 @@ const Playlists = () => {
       ])
    }
 
-   const [selected, setSelected] = React.useState<PlaylistType>('local')
+   const [selected, setSelected] = React.useState<PlaylistType | 'spotify'>('local')
    return (
       <nav className="w-25 bg-main">
          {isOpen && <ContextMenu items={menuItems} top={top} left={left} />}
@@ -94,7 +94,7 @@ const Playlists = () => {
                   <PlaylistItem
                      key={pl.id + 'spotify'}
                      title={pl.name}
-                     to={`/${pl.id}?type=spotify`}
+                     to={`/spotify/playlist/${pl.id}`}
                      thumbnailUrl={pl.images[0]?.url}
                   />
                ))}
@@ -112,6 +112,8 @@ const Playlists = () => {
                            handleContextMenu(e)
                         },
                      }}
+                     // TODO окремий playlist type for deatached playlist
+                     className={pl.origin === 'LOCAL' ? 'italic' : 'not-italic'}
                   />
                ))}
 
@@ -141,17 +143,19 @@ const PlaylistItem = ({
    title,
    to,
    thumbnailUrl,
-   ...props
+   props,
+   className,
 }: {
    title: string
    to: string
    thumbnailUrl?: string | null
    props?: Partial<NavLinkProps>
+   className?: string
 }) => {
    return (
       <NavLink
          to={to}
-         className={({ isActive }) => twMerge('hover:text-accent', isActive && 'text-accent')}
+         className={({ isActive }) => twMerge('hover:text-accent', isActive && 'text-accent', className)}
          onClick={() => useAudioStore.getState().clearHistory()}
          {...props}
       >

@@ -54,7 +54,7 @@ export default function SpotifyTracksTable({ data }: { data: SpotifyTrack[] }) {
             header: 'Info',
             size: 350,
             filterFn: 'arrIncludesSome',
-            cell: (info) => <InfoCellSpotify info={info} />,
+            cell: (info) => <InfoCellSpotify track={info.row.original} setFilterValue={info.column.setFilterValue} />,
          }),
 
          // Column 4: Duration
@@ -132,7 +132,7 @@ export default function SpotifyTracksTable({ data }: { data: SpotifyTrack[] }) {
                        items: plQuery.data.map((pl) => ({
                           name: pl.title,
                           function: () =>
-                             vanillaTrpc.spotify.addTracksToPlaylist.mutate({
+                             vanillaTrpc.spotifyUser.addTracksToPlaylist.mutate({
                                 playlistId: pl.spotifyMetadataId!,
                                 trackUris: [`spotify:track:${t.id}`],
                              }),

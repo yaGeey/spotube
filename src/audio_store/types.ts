@@ -21,7 +21,7 @@ export interface ControlsSlice {
    stop: () => void
    toggle: () => void
    isPlaying: boolean
-   playlistId: number | undefined
+   playlistId: number | string | undefined
    updateState: (state: Partial<AudioStore>) => void
 }
 

@@ -7,6 +7,7 @@ import AuthGenius from './routes/AuthGenius'
 import SpotifyArtist from './routes/spotify/Artist'
 import SpotifyAlbum from './routes/spotify/Album'
 import SpotifySearch from './routes/spotify/Search'
+import PlaylistSpotify from './routes/PlaylistSpotify'
 function App() {
    return (
       <Routes>
@@ -19,6 +20,7 @@ function App() {
                <Route path="search" element={<SpotifySearch />} />
                <Route path="album" element={<SpotifyAlbum />} />
                <Route path="artist" element={<SpotifyArtist />} />
+               <Route path="playlist/:id" element={<PlaylistSpotify />} />
             </Route>
          </Route>
       </Routes>
